@@ -4,10 +4,6 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Dashboard</title>
-		<link
-			rel="stylesheet"
-			href="{{ url_for('static', filename='styles.css') }}"
-		/>
 		<script src="{{url_for('static', filename='plotly-2.32.0.min.js')}}"></script>
 		<script>
 			var setsData = {{ sets | tojson }};
@@ -42,9 +38,15 @@
 					</tbody>
 				</table>
 			</section>
-			<div id="drawdownGraph"></div>
-			<div id="equityGraph"></div>
+			<div id="graphContainer">
+				<div id="drawdownGraph"></div>
+				<div id="equityGraph"></div>
+			</div>
 		</div>
 		<script src="{{url_for('static', filename='script.js')}}"></script>
+		<link
+			rel="stylesheet"
+			href="{{ url_for('static', filename='styles.css') }}"
+		/>
 	</body>
 </html>
