@@ -57,6 +57,18 @@ table {
 	margin: 20px auto;
 }
 
+#graphContainer {
+	display: flex;
+    justify-content: center;  /* Centers items horizontally */
+    align-items: center;      /* Centers items vertically */
+    flex-direction: column;   /* Arranges items in a column */
+    height: 100vh;            /* Sets the height to 100% of the viewport height */
+    margin: 0;                /* Removes default margin */
+    width: 100%;              /* Sets the width to 100% */
+    gap: 20px;                /* Sets a gap between items */
+    padding-top: 200px; 
+}
+
 table th,
 table td {
 	border: 1px solid #5a5a5a;
