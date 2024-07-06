@@ -1,6 +1,6 @@
 import MetaTrader5 as mt5
 import datetime as datetime
-import time, os, json, database, controller
+import time, os, json, database
 from datetime import datetime
 
 #databaseFolder = "C:\\Users\\Louis\\Desktop\\MetaTrader Controller\\database"
@@ -10,10 +10,9 @@ accounts = []
 tickets = []
 
 # establish MetaTrader 5 connection to a specified trading account
-def openMt5(accountData):
+def openMt5(terminalFolder):
      global accounts
-     print(int(accountData["login"]))
-     if not mt5.initialize(accountData["terminalFilePath"], login=int(accountData["login"]), password=accountData["password"], server=accountData["server"]):
+     if not mt5.initialize(terminalFolder):
           print("initialize() failed, error code =",mt5.last_error())
           quit()
      accounts.append(getAccount())
@@ -227,7 +226,7 @@ def getSetName(magic):
             orderMagic = order[6]
             if orderMagic == magic:
                 print(order[16])
-                if order[16] != "" and "[sl" not in order[16] and "[tp" not in order[16] and len(order[16]) > 5:
+                if order[16] != "":
                     setName = order[16]
         except KeyError as e:
             errMsg = f"Magic: {magic}  Task: (Get Set Name)  KeyError: {e} - Error accessing order details"
@@ -604,14 +603,10 @@ def getDrawdown():
             print(errMsg)
             database.log_error(errMsg)
 
-def getDataPath(account_id):
-    terminalData = mt5.terminal_info()._asdict()
-    return terminalData["data_path"]
-
-def trackData(accountData):
+def trackData(terminal):
     try:
         try:
-            openMt5(accountData)
+            openMt5(terminal)
             account = getAccount()
         except Exception as e:
             errMsg = f"Account: {account}  Task: (Track Data)  Error opening MT5 terminal: {e}"
@@ -627,9 +622,9 @@ def trackData(accountData):
             database.log_error(errMsg)
             return
         time.sleep(5)
-        database.updateAccountStatus(account, "tracking")
         while True:
             try:
+                print("Checking Drawdowns")
                 getDrawdown()
             except Exception as e:
                 errMsg = f"Account: {account}  Task: (Track Data)  Error in getDrawdown: {e}"
@@ -650,14 +645,6 @@ def trackData(accountData):
                 print(errMsg)
                 database.log_error(errMsg)
 
-            try:
-                if not controller.isTerminalOpen(accountData["terminalFilePath"]):
-                    openMt5(accountData)
-            except Exception as e:
-                errMsg = f"Account: {account}  Task: (Track Data)  Error updating days live: {e}"
-                print(errMsg)
-                database.log_error(errMsg)
-            
             time.sleep(10)
     except Exception as e:
         errMsg = f"Account: {account}  Task: (Track Data)  Unexpected error: {e}"

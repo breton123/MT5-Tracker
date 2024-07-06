@@ -5,13 +5,6 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Dashboard</title>
 		<script src="{{url_for('static', filename='plotly-2.32.0.min.js')}}"></script>
-		<script>
-			var setsData = {{ sets | tojson }};
-			var graphData = {{ drawdownData | tojson }};
-			var equityData = {{ equityData | tojson }};
-			var filterData = {{ filterData | tojson }};
-			var accounts = {{ accounts | tojson }};
-		</script>
 	</head>
 	<body>
 		<div class="container">
@@ -110,14 +103,7 @@
 					<!-- Main content (Table and Graphs) -->
 					<div class="main-section">
 						<section class="table-section">
-							<div class="table-header">
-								<h2>Sets</h2>
-								<div class="copy-to-container">
-									<select id="accountSelect" disabled>
-										<option value="">Copy to</option>
-									</select>
-								</div>
-							</div>
+							<h2>Sets</h2>
 							<table id="data-table">
 								<thead>
 									<tr>
@@ -132,18 +118,17 @@
 										<th>Days Live</th>
 									</tr>
 								</thead>
-								<tbody>
-									<!-- Table body will be populated dynamically -->
-								</tbody>
+								<tbody></tbody>
 							</table>
+							<div class="no-trades-section">
+								<h1>Waiting for trades...</h1>
+								<h1>Not added any sets? Use the set loader</h1>
+								<a href="/set_loader"><button>Upload Sets</button></a>
+							</div>
 						</section>
 					</div>
 
 					<!-- Graphs Container -->
-				</div>
-				<div class="graph-section">
-					<div id="drawdownGraph"></div>
-					<div id="equityGraph"></div>
 				</div>
 			</div>
 		</div>

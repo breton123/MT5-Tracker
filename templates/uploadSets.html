@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Dashboard</title>
+		<link
+			rel="stylesheet"
+			href="{{ url_for('static', filename='styles.css') }}"
+		/>
+	</head>
+	<body>
+		<div class="container">
+			<header>
+				<h1>Set Loader</h1>
+			</header>
+
+			<div class="main-content">
+				<!-- Sidebar -->
+				<div class="top-container">
+					<aside class="sidebar">
+                              <form
+								action="/upload"
+								method="post"
+								enctype="multipart/form-data"
+							>
+						<h2>Account</h2>
+						<label for="accountSelect">Choose Account:</label>
+						<select id="accountSelect" name="account">
+							{% if accounts %} {% for account in accounts %}
+							<option value="{{ account }}">{{ account }}</option>
+							{% endfor %} {% else %}
+							<option>No Accounts Found.</option>
+							{% endif %}
+						</select>
+						<!-- File upload section -->
+						<div class="filter-group">
+							<h2>Upload Sets</h2>
+							
+								<input type="file" name="files[]" multiple accept=".set" />
+								<button type="submit">Upload</button>
+							
+						</div>
+                              <div class="filter-group">
+                                   <label for="accountSelect">Only use new sets (will wipe current sets)</label>
+								<input type="checkbox" name="new" />
+							</form>
+						</div>
+					</aside>
+                    </form>
+
+					<!-- Main content (Table and Graphs) -->
+					<div class="main-section">
+						<section class="table-section">
+							<h2>Sets</h2>
+							<table id="data-table">
+								<thead>
+									<tr>
+										<th>Set Name</th>
+										<!-- Add more headers as needed -->
+									</tr>
+								</thead>
+								<tbody>
+									{% if sets %} {% for set in sets %}
+									<tr>
+										<td>{{ set }}</td>
+										<!-- Display other set information as needed -->
+									</tr>
+									{% endfor %} {% else %}
+									<tr>
+										<td colspan="9">No sets currently loaded.</td>
+									</tr>
+									{% endif %}
+								</tbody>
+							</table>
+						</section>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

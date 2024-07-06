@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Configuration</title>
+		<link
+			rel="stylesheet"
+			href="{{ url_for('static', filename='styles.css') }}"
+		/>
+	</head>
+	<body>
+		<div class="container">
+			<header>
+				<h1>Configuration</h1>
+			</header>
+
+			<section class="form-section">
+				<form method="post" action="{{ url_for('config') }}">
+					<div class="form-group">
+						<label for="powName">POW Name:</label>
+						<input
+							type="text"
+							id="powName"
+							name="powName"
+							value="{{ config.powName }}"
+							required
+						/>
+					</div>
+					<div class="form-group">
+						<label for="powAPIKey">POW API Key:</label>
+						<input
+							type="text"
+							id="powAPIKey"
+							name="powAPIKey"
+							value="{{ config.powAPIKey }}"
+							required
+						/>
+					</div>
+					<button type="submit">Save</button>
+				</form>
+				{% with messages = get_flashed_messages(with_categories=true) %} {% if
+				messages %}
+				<ul class="flashes">
+					{% for category, message in messages %}
+					<li class="{{ category }}">{{ message }}</li>
+					{% endfor %}
+				</ul>
+				{% endif %} {% endwith %}
+			</section>
+		</div>
+	</body>
+</html>

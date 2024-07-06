@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Dashboard</title>
+		<link
+			rel="stylesheet"
+			href="{{ url_for('static', filename='styles.css') }}"
+		/>
+	</head>
+	<body>
+		<div class="container">
+			<header>
+				<h1>Error Log</h1>
+				<a href="/"><button>Back to Dashboard</button></a>
+			</header>
+
+			<section class="error-section">
+				<!-- Display errors as a string -->
+				{{ errors }}
+			</section>
+		</div>
+		<script src="{{url_for('static', filename='indexScript.js')}}"></script>
+	</body>
+</html>
