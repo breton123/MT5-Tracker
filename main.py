@@ -122,6 +122,7 @@ def create_account():
         else:
             status = "error"
         account_data = {
+            'name': request.form['name'],
             'login': request.form['login'],
             'password': request.form['password'],
             'server': request.form['server'],
@@ -142,9 +143,8 @@ def accountManager():
                 trackerThread = threading.Thread(target=tracker.trackData, args=(account,)).start()
                 trackingAccounts.append(account["login"])
             elif account["type"] == "slave":
-                print("Opening slave")
-                ## make sure it is copying something
-                #trackerThread = threading.Thread(target=tracker.trackData, args=(account["terminalFile"],)).start()
+                trackerThread = threading.Thread(target=tracker.trackData, args=(account,)).start()
+                trackingAccounts.append(account["login"])
 
 
 if __name__ == '__main__':

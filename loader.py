@@ -1,6 +1,6 @@
 import configparser
 import os, json, shutil, random, tracker, database, controller
-
+from pathlib import Path
 import chardet
 
 def write_chr_file(file_path, config):
@@ -207,10 +207,8 @@ def loadSets(account_id):
         write_chr_file(output_chr_file_path, defaultConfig)
         chartNumber += 1
     
-    
+    terminalConfigPath = os.path.join(tracker.getDataPath(account_id), "config", "common.ini")
     controller.closeTerminal(terminalPath)
-    
-    terminalConfigPath = os.path.join("C:\\Users\\Louis\\AppData\\Roaming\\MetaQuotes\\Terminal\\D63934E13840B259D0C4560CD92887F1", "config", "common.ini")
     terminalConfig = read_ini_file(terminalConfigPath)
     terminalConfig["Charts"]["ProfileLast"] = profileName
     terminalConfig["Experts"]["enabled"] = "1"
@@ -219,7 +217,67 @@ def loadSets(account_id):
     with open(terminalConfigPath, 'w') as configfile:
         terminalConfig.write(configfile)
     
+def addCopier(masterAccountID, slaveAccountID, magicNumbers):
+    user_profile = os.environ['USERPROFILE']
+    databaseFolder = os.path.join(user_profile, 'AppData', 'Local', 'Mt5TrackerDatabase')
     
+    
+    masterTerminalPath = ""
+    slaveTerminalPath = ""
+    
+    accounts = database.getAccounts()
+    for account in accounts:
+        if account["login"] == masterAccountID:
+            masterTerminalPath = account["terminalFilePath"]
+        if account["login"] == slaveAccountID:
+            slaveTerminalPath = account["terminalFilePath"]
+        
+    profileName = "MT5-Tracker-Profile"
+    directory = os.getcwd()
+    
+    masterDataPath = tracker.getDataPath(masterAccountID)
+    slaveDataPath = tracker.getDataPath(slaveAccountID)
+
+    
+    masterChartPath = f"{directory}\\tradeSender.chr"
+    slaveChartPath = f"{directory}\\tradeReceiver.chr"
+
+
+    masterConfig = parse_chr_file(masterChartPath)
+    masterConfig["chart"]["id"] = random.randint(100000000000000000, 999999999999999999)
+    masterConfig["chart"]["symbol"] = "XAUUSD"
+    masterConfig["chart"]["expert"]["inputs"]["Channel"] = f"{masterAccountID}-{slaveAccountID}"
+    masterConfig["chart"]["expert"]["inputs"]["IncludeMagicNumbers"] = str(magicNumbers).replace("[","").replace("]","")
+    
+    slaveConfig = parse_chr_file(slaveChartPath)
+    slaveConfig["chart"]["id"] = random.randint(100000000000000000, 999999999999999999)
+    slaveConfig["chart"]["symbol"] = "XAUUSD"
+    slaveConfig["chart"]["expert"]["inputs"]["Channel"] = f"{masterAccountID}-{slaveAccountID}"
+
+    masterProfilePath = os.path.join(masterDataPath, "MQL5", "Profiles", "Charts", profileName)
+    Path(masterProfilePath).mkdir(parents=True, exist_ok=True)
+    masterChartNumber = len([f for f in os.listdir(masterProfilePath) if os.path.isfile(os.path.join(masterProfilePath, f))])
+    masterChrFilePath = os.path.join(masterProfilePath, f"chart0{masterChartNumber}.chr")
+    write_chr_file(masterChrFilePath, masterConfig)
+    
+    slaveProfilePath = os.path.join(slaveDataPath, "MQL5", "Profiles", "Charts", profileName)
+    Path(slaveProfilePath).mkdir(parents=True, exist_ok=True)
+    slaveChartNumber = len([f for f in os.listdir(slaveProfilePath) if os.path.isfile(os.path.join(slaveProfilePath, f))])
+    slaveChrFilePath = os.path.join(slaveProfilePath, f"chart0{slaveChartNumber}.chr")
+    write_chr_file(slaveChrFilePath, slaveConfig)
+    
+
+    
+    
+    terminalConfigPath = os.path.join(tracker.getDataPath(account_id), "config", "common.ini")
+    controller.closeTerminal(terminalPath)
+    terminalConfig = read_ini_file(terminalConfigPath)
+    terminalConfig["Charts"]["ProfileLast"] = profileName
+    terminalConfig["Experts"]["enabled"] = "1"
+    terminalConfig["Experts"]["allowdllimport"] = "1"
+    
+    with open(terminalConfigPath, 'w') as configfile:
+        terminalConfig.write(configfile)
     
     
         

@@ -538,13 +538,6 @@ def getDrawdown():
             else:
                 profitList[magic] += profit
             
-            if magic not in drawdown:
-                drawdown[magic] = profit if profit < 0 else 0
-            else:
-                if profit < 0:
-                    drawdown[magic] += profit
-                else:
-                    drawdown[magic] = max(0, drawdown[magic] + profit)
         except KeyError as e:
             errMsg = f"Account: {account}  Task: (Get Drawdown)  KeyError: {e} - Error accessing position details"
             print(errMsg)
@@ -554,10 +547,13 @@ def getDrawdown():
             print(errMsg)
             database.log_error(errMsg)
     
-    for magic in drawdown:
+    for magic in profitList:
         try:
-            currentDrawdown = round(drawdown[magic], 2)
+            currentDrawdown = round(profitList[magic], 2)
             currentProfit = round(profitList[magic], 2)
+            print(currentDrawdown, currentProfit, magic)
+            if float(currentDrawdown) > 0:
+                currentDrawdown = 0
             
             print(f"Uploading drawdown {currentDrawdown} and profit {currentProfit} for magic {magic}")
             database.updateDrawdown(magic, currentDrawdown, currentTime, account)

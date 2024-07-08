@@ -714,10 +714,9 @@ def updateEquity(magic, profit, time, account):
     try:
         # Calculate profit percentage based on absolute profit and deposit
         deposit = getDeposit(account)
-        
         # Calculate new equity including historical profit and current profit
         historicalProfit = tracker.getHistoricalProfit(magic)
-        equity = deposit + historicalProfit + profit
+        equity = float(deposit) + float(historicalProfit) + float(profit)
         
         # Lock the file for reading and writing
         file_path = os.path.join(databaseFolder, account, f"{magic}.json")
@@ -788,6 +787,7 @@ def getSet(magic, account):
     
     except FileNotFoundError:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Get Set)  File {magic}.json not found"
+        tracker.createSet(magic)
         print(errMsg)
         log_error(errMsg)
         return {}
