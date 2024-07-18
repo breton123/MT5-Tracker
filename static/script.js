@@ -1,35 +1,166 @@
 document.addEventListener("DOMContentLoaded", function () {
 	var tableBody = document.querySelector("#data-table tbody");
 	var accountSelect = document.getElementById("accountSelect");
+	var deleteSetButton = document.getElementById("deleteSetButton");
+	deleteSetButton.disabled = true;
 
-	function setRangeValues() {
-		document.getElementById("profitRange").min = filterData.minProfit;
-		document.getElementById("profitRange").max = filterData.maxProfit;
-		document.getElementById("profitRange").value = filterData.minProfit;
-		document.getElementById("tradesRange").min = filterData.minTrades;
-		document.getElementById("tradesRange").max = filterData.maxTrades;
-		document.getElementById("tradesRange").value = filterData.minTrades;
-		document.getElementById("maxDrawdownRange").min = filterData.minDrawdown;
-		document.getElementById("maxDrawdownRange").max = filterData.maxDrawdown;
-		document.getElementById("maxDrawdownRange").value = filterData.minDrawdown;
-		document.getElementById("profitFactorRange").min =
-			filterData.minProfitFactor;
-		document.getElementById("profitFactorRange").max =
-			filterData.maxProfitFactor;
-		document.getElementById("profitFactorRange").value =
-			filterData.minProfitFactor;
-		document.getElementById("returnOnDrawdownRange").min =
-			filterData.minReturnOnDrawdown;
-		document.getElementById("returnOnDrawdownRange").max =
-			filterData.maxReturnOnDrawdown;
-		document.getElementById("returnOnDrawdownRange").value =
-			filterData.minReturnOnDrawdown;
-		document.getElementById("daysLiveRange").min = filterData.minDaysLive;
-		document.getElementById("daysLiveRange").max = filterData.maxDaysLive;
-		document.getElementById("daysLiveRange").value = filterData.minDaysLive;
+	function enableDeleteButton() {
+		deleteSetButton.disabled = false;
 	}
 
-	setRangeValues();
+	function disableDeleteButton() {
+		deleteSetButton.disabled = true;
+	}
+
+	function checkRowSelection() {
+		var selectedRows = Array.from(
+			tableBody.querySelectorAll(".row-select:checked")
+		).map((checkbox) => {
+			return checkbox.closest("tr").querySelector("td:nth-child(3)")
+				.textContent; // Magic number
+		});
+
+		if (selectedRows.length > 0) {
+			enableDeleteButton();
+		} else {
+			disableDeleteButton();
+		}
+	}
+
+	function updateSliderValue(sliderId) {
+		const slider = document.getElementById(sliderId);
+		const valueSpan = document.getElementById(sliderId + "-value");
+		valueSpan.textContent = slider.value;
+	}
+
+	function setRangeValues() {
+		document.getElementById("min-profit").min = filterData.minProfit;
+		document.getElementById("min-profit").max = filterData.maxProfit;
+		document.getElementById("min-profit").value = filterData.minProfit;
+		updateSliderValue("min-profit");
+
+		document.getElementById("min-trades").min = filterData.minTrades;
+		document.getElementById("min-trades").max = filterData.maxTrades;
+		document.getElementById("min-trades").value = filterData.minTrades;
+		updateSliderValue("min-trades");
+
+		document.getElementById("max-drawdown").min = filterData.minDrawdown;
+		document.getElementById("max-drawdown").max = filterData.maxDrawdown;
+		document.getElementById("max-drawdown").value = filterData.minDrawdown;
+		updateSliderValue("max-drawdown");
+
+		document.getElementById("profit-factor").min = filterData.minProfitFactor;
+		document.getElementById("profit-factor").max = filterData.maxProfitFactor;
+		document.getElementById("profit-factor").value = filterData.minProfitFactor;
+		updateSliderValue("profit-factor");
+
+		document.getElementById("return-drawdown").min =
+			filterData.minReturnOnDrawdown;
+		document.getElementById("return-drawdown").max =
+			filterData.maxReturnOnDrawdown;
+		document.getElementById("return-drawdown").value =
+			filterData.minReturnOnDrawdown;
+		updateSliderValue("return-drawdown");
+
+		document.getElementById("min-days-live").min = filterData.minDaysLive;
+		document.getElementById("min-days-live").max = filterData.maxDaysLive;
+		document.getElementById("min-days-live").value = filterData.minDaysLive;
+		updateSliderValue("min-days-live");
+
+		document.getElementById("avg-drawdown").min = filterData.minAvgDrawdown;
+		document.getElementById("avg-drawdown").max = filterData.maxAvgDrawdown;
+		document.getElementById("avg-drawdown").value = filterData.minAvgDrawdown;
+		updateSliderValue("avg-drawdown");
+
+		document.getElementById("win-rate").min = filterData.minWinRate;
+		document.getElementById("win-rate").max = filterData.maxWinRate;
+		document.getElementById("win-rate").value = filterData.avgWinRate;
+		updateSliderValue("win-rate");
+	}
+
+	//setRangeValues();
+	function setStatValues() {
+		newData = calculateStatData();
+		document.getElementById("selectedProfit").textContent = newData["profit"];
+		document.getElementById("selectedMaxDrawdown").textContent =
+			newData["maxDrawdown"];
+		document.getElementById("selectedAvgDrawdown").textContent =
+			newData["avgDrawdown"];
+		document.getElementById("selectedSets").textContent = newData["sets"];
+	}
+
+	function updateGraphSets() {
+		var setNames = Array.from(
+			tableBody.querySelectorAll(".row-select:checked")
+		).map((checkbox) => {
+			return checkbox.closest("tr").querySelector("td:nth-child(2)")
+				.textContent; // Magic number
+		});
+
+		if (setNames.length == 0) {
+			var setNames = Array.from(
+				tableBody.querySelectorAll(".row-select:not(:checked)")
+			).map((checkbox) => {
+				return checkbox.closest("tr").querySelector("td:nth-child(2)")
+					.textContent; // Magic number
+			});
+		}
+
+		var newGraphData = [];
+		graphData.forEach(function (trace) {
+			if (setNames.includes(trace.name)) {
+				newGraphData.push(trace);
+			}
+		});
+		var newEquityData = [];
+		equityData.forEach(function (trace) {
+			if (setNames.includes(trace.name)) {
+				newEquityData.push(trace);
+			}
+		});
+
+		Plotly.react("drawdownGraph", newGraphData, drawdownLayout);
+		Plotly.react("equityGraph", newEquityData, equityLayout);
+	}
+
+	function calculateStatData() {
+		var magicNumbers = Array.from(
+			tableBody.querySelectorAll(".row-select:checked")
+		).map((checkbox) => {
+			return checkbox.closest("tr").querySelector("td:nth-child(3)")
+				.textContent; // Magic number
+		});
+
+		if (magicNumbers.length == 0) {
+			return {
+				profit: accountProfit.toFixed(2),
+				maxDrawdown: accountDrawdown.toFixed(2),
+				avgDrawdown: accountAvgDrawdown.toFixed(2),
+				sets: testSets,
+			};
+		}
+		var selectedProfit = 0;
+		var selectedMaxDrawdown = 0;
+		var selectedAvgDrawdown = 0;
+		setsData.forEach(function (set) {
+			if (magicNumbers.includes(set["stats"].magic.toString())) {
+				selectedProfit += set["stats"].profit;
+				if (
+					set["stats"].maxDrawdown != "-" &&
+					set["stats"].avgDrawdown != "-"
+				) {
+					selectedMaxDrawdown += set["stats"].maxDrawdown;
+					selectedAvgDrawdown += set["stats"].avgDrawdown;
+				}
+			}
+		});
+		return {
+			profit: selectedProfit.toFixed(2),
+			maxDrawdown: selectedMaxDrawdown.toFixed(2),
+			avgDrawdown: selectedAvgDrawdown.toFixed(2),
+			sets: magicNumbers.length,
+		};
+	}
 
 	function createTableRow(stats) {
 		var row = document.createElement("tr");
@@ -43,18 +174,32 @@ document.addEventListener("DOMContentLoaded", function () {
 		row.appendChild(checkbox);
 		[
 			"setName",
-			"strategy",
 			"magic",
 			"profit",
 			"trades",
 			"maxDrawdown",
+			"avgDrawdown",
 			"profitFactor",
 			"returnOnDrawdown",
+			"minLotSize",
+			"maxLotSize",
+			"avgLotSize",
+			"winRate",
+			"wins",
+			"losses",
+			"minTradeTime",
+			"maxTradeTime",
+			"avgTradeTime",
 			"daysLive",
 		].forEach(function (key) {
-			var cell = document.createElement("td");
-			cell.textContent = stats[key];
-			row.appendChild(cell);
+			if (document.getElementById(key).checked) {
+				document.getElementById(key + "Header").style.display = "";
+				var cell = document.createElement("td");
+				cell.textContent = stats[key];
+				row.appendChild(cell);
+			} else {
+				document.getElementById(key + "Header").style.display = "none";
+			}
 		});
 		return row;
 	}
@@ -68,6 +213,37 @@ document.addEventListener("DOMContentLoaded", function () {
 	}
 
 	populateTable(setsData);
+	setRangeValues();
+	setStatValues();
+
+	var selectedRows = Array.from(
+		tableBody.querySelectorAll(".row-select:checked")
+	).map((checkbox) => {
+		return checkbox.closest("tr").querySelector("td:nth-child(3)").textContent; // Magic number
+	});
+
+	function resetTable() {
+		populateTable(setsData);
+	}
+
+	var columnToggles = document.querySelectorAll(".column-toggle");
+	columnToggles.forEach(function (toggle) {
+		toggle.addEventListener("change", resetTable);
+	});
+
+	function toggleFilters() {
+		calculateStatData();
+		filters = document.getElementById("filters-container");
+		if (filters.style.display == "none") {
+			filters.style.display = "";
+		} else {
+			filters.style.display = "none";
+		}
+	}
+
+	document
+		.getElementById("filterButton")
+		.addEventListener("click", toggleFilters);
 
 	function applyFilters() {
 		var profitMin = parseInt(document.getElementById("profitRange").value);
@@ -78,6 +254,10 @@ document.addEventListener("DOMContentLoaded", function () {
 		var drawdownMax = parseInt(document.getElementById("maxDrawdownRange").max);
 		var daysLiveMin = parseInt(document.getElementById("daysLiveRange").value);
 		var daysLiveMax = parseInt(document.getElementById("daysLiveRange").max);
+		var drawdownWindow = parseInt(
+			document.getElementById("drawdownWindow").value
+		);
+		var equityWindow = parseInt(document.getElementById("equityWindow").value);
 
 		function parseDrawdown(drawdown) {
 			return drawdown === "-" ? 0 : parseInt(drawdown);
@@ -98,18 +278,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		console.log(filteredData);
 		populateTable(filteredData);
-		updateGraphs(filteredData, 3, 3);
+		updateGraphs(filteredData, drawdownWindow, equityWindow);
 	}
 
 	function resetFilters() {
 		populateTable(setsData);
-		updateGraphs(graphData, 3, 3);
+		updateGraphs(graphData, 10, 10);
 		setRangeValues();
 	}
 
-	document
-		.getElementById("applyFilters")
-		.addEventListener("click", applyFilters);
+	//document
+	//	.getElementById("applyFilters")
+	//	.addEventListener("click", applyFilters);
+
+	//document
+	//	.getElementById("resetFilters")
+	//	.addEventListener("click", resetFilters);
 
 	function updateGraphs(filteredData, drawdownWindow, equityWindow) {
 		var filteredGraphData = graphData.filter(function (trace) {
@@ -132,7 +316,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				x: adjustedXData,
 				y: smoothedYData,
 				mode: "lines",
-				name: trace.name + " (Smoothed)",
+				name: trace.name,
 				line: { shape: "spline" }, // Spline interpolation
 			};
 		});
@@ -153,8 +337,8 @@ document.addEventListener("DOMContentLoaded", function () {
 		var allDrawdownTraces = [...filteredGraphData, ...smoothedDrawdownTraces];
 		var allEquityTraces = [...filteredEquityData, ...smoothedEquityTraces];
 
-		Plotly.react("drawdownGraph", allDrawdownTraces, drawdownLayout);
-		Plotly.react("equityGraph", allEquityTraces, equityLayout);
+		Plotly.react("drawdownGraph", smoothedDrawdownTraces, drawdownLayout);
+		Plotly.react("equityGraph", smoothedEquityTraces, equityLayout);
 	}
 
 	function movingAverage(data, windowSize) {
@@ -169,11 +353,14 @@ document.addEventListener("DOMContentLoaded", function () {
 		return result;
 	}
 
+	var screenWidth = window.innerWidth;
+	var newWidth = screenWidth - 350;
+
 	var drawdownLayout = {
 		title: "Drawdown",
 		plot_bgcolor: "#222",
 		paper_bgcolor: "#222",
-		width: 1400,
+		width: newWidth,
 		height: 800,
 		font: {
 			color: "#fff",
@@ -194,7 +381,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		title: "Equity",
 		plot_bgcolor: "#222",
 		paper_bgcolor: "#222",
-		width: 1400,
+		width: newWidth,
 		height: 800,
 		font: {
 			color: "#fff",
@@ -214,6 +401,76 @@ document.addEventListener("DOMContentLoaded", function () {
 	Plotly.newPlot("drawdownGraph", graphData, drawdownLayout);
 	Plotly.newPlot("equityGraph", equityData, equityLayout);
 
+	function onResize() {
+		var screenWidth = window.innerWidth;
+		var newWidth = screenWidth - 350;
+		var updatedDawdownLayout = {
+			title: "Drawdown",
+			plot_bgcolor: "#222",
+			paper_bgcolor: "#222",
+			width: newWidth,
+			height: 800,
+			font: {
+				color: "#fff",
+			},
+			xaxis: {
+				title: "Time",
+				color: "#fff",
+				gridcolor: "#444",
+			},
+			yaxis: {
+				title: "Drawdown",
+				color: "#fff",
+				gridcolor: "#444",
+			},
+		};
+
+		var updatedEquityLayout = {
+			title: "Equity",
+			plot_bgcolor: "#222",
+			paper_bgcolor: "#222",
+			width: newWidth,
+			height: 800,
+			font: {
+				color: "#fff",
+			},
+			xaxis: {
+				title: "Time",
+				color: "#fff",
+				gridcolor: "#444",
+			},
+			yaxis: {
+				title: "Equity",
+				color: "#fff",
+				gridcolor: "#444",
+			},
+		};
+		Plotly.react("drawdownGraph", graphData, updatedDawdownLayout);
+		Plotly.react("equityGraph", equityData, updatedEquityLayout);
+	}
+
+	window.addEventListener("resize", onResize);
+
+	function deleteSet() {
+		fetch("/delete-set", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				account: selectedAccount,
+				magicNumbers: selectedRows,
+			}),
+		})
+			.then((response) => response.json())
+			.then((data) => {
+				console.log("Success:", data);
+			})
+			.catch((error) => {
+				console.error("Error:", error);
+			});
+	}
+
 	accounts.forEach((account) => {
 		var option = document.createElement("option");
 		option.value = account;
@@ -231,13 +488,16 @@ document.addEventListener("DOMContentLoaded", function () {
 				tableBody.querySelectorAll(".row-select:checked").length > 0;
 			accountSelect.disabled = !selected;
 		}
+		setStatValues();
+		updateGraphSets();
+		checkRowSelection();
 	});
 
 	accountSelect.addEventListener("change", function () {
 		var selectedRows = Array.from(
 			tableBody.querySelectorAll(".row-select:checked")
 		).map((checkbox) => {
-			return checkbox.closest("tr").querySelector("td:nth-child(4)")
+			return checkbox.closest("tr").querySelector("td:nth-child(3)")
 				.textContent; // Magic number
 		});
 
@@ -271,5 +531,102 @@ document.addEventListener("DOMContentLoaded", function () {
 			.querySelectorAll("tr.selected")
 			.forEach((row) => row.classList.remove("selected"));
 		accountSelect.disabled = true;
+		checkRowSelection();
+	});
+
+	var tableBody = document.querySelector("#data-table tbody");
+	var currentSortColumn = null;
+	var isAscending = true;
+
+	function sortTable(columnIndex, dataType) {
+		var rows = Array.from(tableBody.rows);
+
+		rows.sort(function (rowA, rowB) {
+			var valueA = parseCellValue(
+				rowA.cells[columnIndex].textContent,
+				dataType
+			);
+			var valueB = parseCellValue(
+				rowB.cells[columnIndex].textContent,
+				dataType
+			);
+
+			if (isAscending) {
+				return compareValues(valueA, valueB);
+			} else {
+				return compareValues(valueB, valueA);
+			}
+		});
+
+		// Clear existing rows
+		while (tableBody.firstChild) {
+			tableBody.removeChild(tableBody.firstChild);
+		}
+
+		// Append sorted rows
+		rows.forEach(function (row) {
+			tableBody.appendChild(row);
+		});
+
+		// Toggle sort order
+		isAscending = !isAscending;
+		currentSortColumn = columnIndex;
+	}
+
+	function parseCellValue(value, dataType) {
+		if (value === "-" || value === "") {
+			if (dataType === "numeric") {
+				return 0;
+			} else {
+				return "";
+			}
+		} else {
+			if (dataType === "numeric") {
+				return parseFloat(value);
+			} else {
+				return value;
+			}
+		}
+	}
+
+	function compareValues(valueA, valueB) {
+		if (valueA < valueB) {
+			return -1;
+		} else if (valueA > valueB) {
+			return 1;
+		} else {
+			return 0;
+		}
+	}
+
+	// Add click event listeners to table headers
+	var headers = document.querySelectorAll("#data-table th");
+	headers.forEach(function (header, index) {
+		header.addEventListener("click", function () {
+			// Determine data type based on column index
+			var dataType = "string"; // default to string
+			if (
+				index === 2 ||
+				index === 3 ||
+				index === 4 ||
+				index === 5 ||
+				index === 6 ||
+				index === 7 ||
+				index === 8 ||
+				index === 9 ||
+				index === 10 ||
+				index === 11 ||
+				index === 12 ||
+				index === 13 ||
+				index === 14 ||
+				index === 15 ||
+				index === 16 ||
+				index === 17
+			) {
+				dataType = "numeric";
+			}
+
+			sortTable(index, dataType);
+		});
 	});
 });

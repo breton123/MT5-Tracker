@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		var cell = document.createElement("td");
 		cell.textContent = object.login;
+		cell.style.alignContent = "center";
 		row.appendChild(cell);
 
 		var cell = document.createElement("td");
@@ -24,6 +25,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		var button = document.createElement("button");
 		button.textContent = "View";
 		button.id = "add-chart-btn";
+		button.classList.add("button");
 		if (object.status != "tracking") button.disabled = true;
 		button.addEventListener("click", function () {
 			window.location.href = "/" + object.login; // Redirect to /object
