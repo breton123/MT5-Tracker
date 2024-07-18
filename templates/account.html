@@ -3,7 +3,14 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Dashboard</title>
+		<link
+			href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+			rel="stylesheet"
+		/>
+		<link
+			rel="stylesheet"
+			href="{{ url_for('static', filename='test.css') }}"
+		/>
 		<script src="{{url_for('static', filename='plotly-2.32.0.min.js')}}"></script>
 		<script>
 			var setsData = {{ sets | tojson }};
@@ -11,146 +18,290 @@
 			var equityData = {{ equityData | tojson }};
 			var filterData = {{ filterData | tojson }};
 			var accounts = {{ accounts | tojson }};
+			var accountProfit = {{ accountProfit }};
+			var accountDrawdown = {{ accountDrawdown }};
+			var accountAvgDrawdown = {{ accountAverageDrawdown }};
+			var testSets = {{ testSets }};
+
 		</script>
+		<title>POW Tracker - Tracker</title>
 	</head>
-	<body>
-		<div class="container">
-			<header>
-				<h1>Account</h1>
-			</header>
 
-			<div class="main-content">
-				<!-- Sidebar -->
-				<div class="top-container">
-					<aside class="sidebar">
-						<h2>Filters</h2>
-						<div class="filter-group">
-							<label for="profitRange">Profit Range:</label>
-							<input
-								type="range"
-								id="profitRange"
-								name="profitRange"
-								min="0"
-								max="100"
-								value="0"
-							/>
-						</div>
-						<div class="filter-group">
-							<label for="tradesRange">Trades Range:</label>
-							<input
-								type="range"
-								id="tradesRange"
-								name="tradesRange"
-								min="0"
-								max="100"
-								value="0"
-							/>
-						</div>
-						<div class="filter-group">
-							<label for="maxDrawdownRange">Max Drawdown Range:</label>
-							<input
-								type="range"
-								id="maxDrawdownRange"
-								name="maxDrawdownRange"
-								min="0"
-								max="100"
-								value="0"
-							/>
-						</div>
-						<div class="filter-group">
-							<label for="profitFactorRange">Profit Factor Range:</label>
-							<input
-								type="range"
-								id="profitFactorRange"
-								name="profitFactorRange"
-								min="0"
-								max="100"
-								value="0"
-							/>
-						</div>
-						<div class="filter-group">
-							<label for="returnOnDrawdownRange"
-								>Return on Drawdown Range:</label
-							>
-							<input
-								type="range"
-								id="returnOnDrawdownRange"
-								name="returnOnDrawdownRange"
-								min="0"
-								max="100"
-								value="0"
-							/>
-						</div>
-						<div class="filter-group">
-							<label for="daysLiveRange">Days Live Range:</label>
-							<input
-								type="range"
-								id="daysLiveRange"
-								name="daysLiveRange"
-								min="0"
-								max="100"
-								value="0"
-							/>
-						</div>
+	<body class="dark">
+		<!-- Sidebar -->
+		<div class="sidebar">
+			<a href="#" class="logo">
+				<i class="bx bx-code-alt"></i>
+				<div class="logo-name"><span>POW</span>Tracker</div>
+				
+			</a>
+			<ul class="side-menu">
+				<li>
+					<a href="/"><i class="bx bxs-dashboard"></i>Accounts</a>
+				</li>
+				<li class="active">
+					<a href=""><i class="bx bx-store-alt"></i>Tracker</a>
+				</li>
+				<li>
+					<a href="/set_loader"><i class="bx bx-analyse"></i>Set Loader</a>
+				</li>
+				<li>
+					<a href="/config"><i class="bx bx-message-square-dots"></i>Config</a>
+				</li>
+				<li>
+					<a href="/error_log"><i class="bx bx-group"></i>Error Log</a>
+				</li>
+			</ul>
+			<ul class="side-menu">
+				
+			</ul>
+		</div>
+		<!-- End of Sidebar -->
 
-						<div class="filter-group">
-							<label for="equityWindow">Equity Graph Window Size:</label>
-							<input
-								type="number"
-								id="equityWindow"
-								name="equityWindow"
-								min="1"
-								value="3"
-							/>
-						</div>
-						<button id="applyFilters">Apply Filters</button>
-						<button id="resetFilters">Reset Filters</button>
-					</aside>
+		<!-- Main Content -->
+		<div class="content">
+			<!-- Navbar -->
+			<nav>
+				<i class="bx bx-menu"></i>
+				<form action="#">
+					<div class="form-input" style="display: none">
+						<input type="search" placeholder="Search..." />
+						<button class="search-btn" type="submit">
+							<i class="bx bx-search"></i>
+						</button>
+					</div>
+				</form>
+				<input type="checkbox" id="theme-toggle" hidden />
+				<label for="theme-toggle" class="theme-toggle"></label>
+				<a href="#" class="notif">
+					<i class="bx bx-bell"></i>
+					<span class="count">12</span>
+				</a>
+				
+			</nav>
 
-					<!-- Main content (Table and Graphs) -->
-					<div class="main-section">
-						<section class="table-section">
-							<div class="table-header">
-								<h2>Sets</h2>
-								<div class="copy-to-container">
-									<select id="accountSelect" disabled>
-										<option value="">Copy to</option>
-									</select>
+			<!-- End of Navbar -->
+
+			<main>
+				<div class="header">
+					<div class="left">
+						<h1>Tracker</h1>
+						<ul class="breadcrumb">
+							<li><a href="#"> Accounts </a></li>
+							/
+							<li><a href="#" class="active">34534</a></li>
+						</ul>
+					</div>
+					
+					<div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+						<a href="/delete-set"><button id="deleteSetButton" disabled class="button">Delete Set</button></a>
+						<select id="accountSelect" class="button" disabled>
+							<option value="">Copy to</option>
+						</select>
+						<a href="/set_loader"><button class="button">Add Set</button></a>
+						<a href="#" class="report">
+							<i class="bx bx-cloud-download"></i>
+							<span>Download CSV</span>
+						</a>
+					</div>
+				</div>
+
+				<!-- Insights -->
+				<ul class="insights">
+					<li>
+						<i class="bx bx-dollar-circle"></i>
+						<span class="info">
+							<h3 id="selectedProfit">{{ accountProfit }}</h3>
+							<p>Total Profit</p>
+						</span>
+					</li>
+					<li>
+						<i class="bx bx-show-alt"></i>
+						<span class="info">
+							<h3 id="selectedMaxDrawdown">{{ accountDrawdown }}</h3>
+							<p>Max Drawdown</p>
+						</span>
+					</li>
+					<li>
+						<i class="bx bx-line-chart"></i>
+						<span class="info">
+							<h3 id="selectedAvgDrawdown">{{ accountAverageDrawdown }}</h3>
+							<p>Average Drawdown</p>
+						</span>
+					</li>
+					<li>
+						<i class="bx bx-calendar-check"></i>
+						<span class="info">
+							<h3 id="selectedSets">{{ testSets }}</h3>
+							<p>Sets</p>
+						</span>
+					</li>
+				</ul>
+				<!-- End of Insights -->
+
+				<div class="bottom-data">
+					<div class="orders">
+						<div class="header">
+							<i class="bx bx-receipt"></i>
+							<h3>Sets</h3>
+							<i id="filterButton" class="bx bx-filter"></i>
+							<i id="searchButton" class="bx bx-search"></i>
+						</div>
+						<div id="filters-container" class="filters-container" style="display: none;">
+							<div class="table-filters">
+								<div class="column-filters">
+									<div class="quad-column">
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="setName"  data-column="0" checked> Set Name</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="magic" data-column="1" checked> Magic</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="profit" data-column="2" checked> Profit</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="trades" data-column="3" checked> Trades</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="avgTradeTime" data-column="16" > Avg Trade Time</label>
+									</div>
+									<div class="quad-column">
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="maxDrawdown" data-column="4" checked> Max Drawdown</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="avgDrawdown" data-column="5" checked> Average Drawdown</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="profitFactor" data-column="6" checked> Profit Factor</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="returnOnDrawdown" data-column="7" checked> Return on Drawdown</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="daysLive" data-column="17" checked> Days Live</label>
+									</div>
+									<div class="quad-column">
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="minLotSize" data-column="8" > Min Lot Size</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="maxLotSize" data-column="9" > Max Lot Size</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="avgLotSize" data-column="10" > Average Lot Size</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="winRate" data-column="11" checked> Win Rate</label>
+									</div>
+									<div class="quad-column">
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="wins" data-column="12" checked> Wins</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="losses" data-column="13" checked> Losses</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="minTradeTime" data-column="14" > Min Trade Time</label>
+										<label class="column-toggle-container"><input type="checkbox" class="column-toggle" id="maxTradeTime" data-column="15" > Max Trade Time</label>
+									</div>
 								</div>
+								<div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
+									<div class="filter-section">
+										<div class="quad-column">
+											<div class="filter-group">
+												<label for="max-drawdown">Min Profit</label>
+												<div class="slider-container">
+													<input type="range" id="min-profit" name="min-profit" min="0" max="100" value="50" oninput="updateSliderValue('min-profit')">
+													<span id="min-profit-value">50</span>
+												</div>
+											</div>
+										
+											<div class="filter-group">
+												<label for="max-drawdown">Max Drawdown</label>
+												<div class="slider-container">
+													<input type="range" id="max-drawdown" name="max-drawdown" min="0" max="100" value="50" oninput="updateSliderValue('max-drawdown')">
+													<span id="max-drawdown-value">50</span>
+												</div>
+											</div>
+										
+											<div class="fi	lter-group">
+												<label for="avg-drawdown">Max Average Drawdown</label>
+												<div class="slider-container">
+													<input type="range" id="avg-drawdown" name="avg-drawdown" min="0" max="100" value="50" oninput="updateSliderValue('avg-drawdown')">
+													<span id="avg-drawdown-value">50</span>
+												</div>
+											</div>
+										</div>
+										<div class="quad-column">
+											<div class="filter-group">
+												<label for="profit-factor">Min Profit Factor</label>
+												<div class="slider-container">
+													<input type="range" id="profit-factor" name="profit-factor" min="0" max="100" value="50" oninput="updateSliderValue('profit-factor')">
+													<span id="profit-factor-value">50</span>
+												</div>
+											</div>
+											<div class="filter-group">
+												<label for="return-drawdown">Min Return on Drawdown</label>
+												<div class="slider-container">
+													<input type="range" id="return-drawdown" name="return-drawdown" min="0" max="100" value="50" oninput="updateSliderValue('return-drawdown')">
+													<span id="return-drawdown-value">50</span>
+												</div>
+											</div>
+											<div class="filter-group">
+												<label for="win-rate">Min Win Rate</label>
+												<div class="slider-container">
+													<input type="range" id="win-rate" name="win-rate" min="0" max="100" value="50" oninput="updateSliderValue('win-rate')">
+													<span id="win-rate-value">50</span>
+												</div>
+											</div>
+										</div>
+										<div class="quad-column">
+											<div class="filter-group">
+												<label for="avg-trade-time">Max Avg Trade Time</label>
+												<div class="slider-container">
+													<input type="range" id="avg-trade-time" name="avg-trade-time" min="0" max="100" value="50" oninput="updateSliderValue('avg-trade-time')">
+													<span id="avg-trade-time-value">50</span>
+												</div>
+											</div>
+											<div class="filter-group">
+												<label for="days-live">Min Trades</label>
+												<div class="slider-container">
+													<input type="range" id="min-trades" name="min-trades" min="0" max="100" value="50" oninput="updateSliderValue('min-trades')">
+													<span id="min-trades-value">50</span>
+												</div>
+											</div>
+											<div class="filter-group">
+												<label for="days-live">Min Days Live</label>
+												<div class="slider-container">
+													<input type="range" id="min-days-live" name="min-days-live" min="0" max="100" value="50" oninput="updateSliderValue('min-days-live')">
+													<span id="min-days-live-value">50</span>
+												</div>
+											</div>
+										</div>
+										
+									</div>
+									<button style="width: 20%;" class="button">Apply Filters</button>
+								</div>
+								   
 							</div>
-							<table id="data-table">
-								<thead>
-									<tr>
-										<th>Set Name</th>
-										<th>Strategy</th>
-										<th>Magic</th>
-										<th>Profit</th>
-										<th>Trades</th>
-										<th>Max Drawdown</th>
-										<th>Profit Factor</th>
-										<th>Return on Drawdown</th>
-										<th>Days Live</th>
-									</tr>
-								</thead>
-								<tbody>
-									<!-- Table body will be populated dynamically -->
-								</tbody>
-							</table>
-						</section>
+						</div>
+						<table id="data-table">
+							<thead>
+								<tr>
+									<th id="setNameHeader">Set Name</th>
+									<th id="magicHeader">Magic</th>
+									<th id="profitHeader">Profit</th>
+									<th id="tradesHeader">Trades</th>
+									<th id="maxDrawdownHeader">Max Drawdown</th>
+									<th id="avgDrawdownHeader">Average Drawdown</th>
+									<th id="profitFactorHeader">Profit Factor</th>
+									<th id="returnOnDrawdownHeader">Return on Drawdown</th>
+									<th id="minLotSizeHeader">Min Lot Size</th>
+									<th id="maxLotSizeHeader">Max Lot Size</th>
+									<th id="avgLotSizeHeader">Average Lot Size</th>
+									<th id="winRateHeader">Win Rate</th>
+									<th id="winsHeader">Wins</th>
+									<th id="lossesHeader">Losses</th>
+									<th id="minTradeTimeHeader">Min Trade Time</th>
+									<th id="maxTradeTimeHeader">Max Trade Time</th>
+									<th id="avgTradeTimeHeader">Avg Trade Time</th>
+									<th id="daysLiveHeader">Days Live</th>
+								</tr>
+							</thead>
+							<tbody>
+							</tbody>
+						</table>
+					</div>
+					<div class="graph-section">
+						<div id="drawdownGraph"></div>
+						<div id="equityGraph" style="margin-top: 20px"></div>
 					</div>
 
-					<!-- Graphs Container -->
+					<!-- End of Reminders-->
 				</div>
-				<div class="graph-section">
-					<div id="drawdownGraph"></div>
-					<div id="equityGraph"></div>
-				</div>
-			</div>
+			</main>
 		</div>
-		<script src="{{url_for('static', filename='script.js')}}"></script>
-		<link
-			rel="stylesheet"
-			href="{{ url_for('static', filename='styles.css') }}"
-		/>
+
+		<script src={{url_for('static', filename='test.js')}}></script>
+		<script src={{url_for('static', filename='script.js')}}></script>
+		<script>
+			function updateSliderValue(sliderId) {
+				const slider = document.getElementById(sliderId);
+				const valueSpan = document.getElementById(sliderId + "-value");
+				valueSpan.textContent = slider.value;
+			}
+		</script>
 	</body>
 </html>

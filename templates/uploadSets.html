@@ -3,80 +3,169 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Dashboard</title>
+		<link
+			href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+			rel="stylesheet"
+		/>
 		<link
 			rel="stylesheet"
-			href="{{ url_for('static', filename='styles.css') }}"
+			href="{{ url_for('static', filename='test.css') }}"
 		/>
+		<script>
+			var profiles = {{ profiles | tojson }};
+		</script>
+		<title>POW Tracker - Accounts</title>
 	</head>
-	<body>
-		<div class="container">
-			<header>
-				<h1>Set Loader</h1>
-			</header>
 
-			<div class="main-content">
-				<!-- Sidebar -->
-				<div class="top-container">
-					<aside class="sidebar">
-                              <form
-								action="/upload"
-								method="post"
-								enctype="multipart/form-data"
-							>
-						<h2>Account</h2>
-						<label for="accountSelect">Choose Account:</label>
-						<select id="accountSelect" name="account">
+	<body class="dark">
+		<!-- Sidebar -->
+		<div class="sidebar">
+			<a href="#" class="logo">
+				<i class="bx bx-code-alt"></i>
+				<div class="logo-name"><span>POW</span>Tracker</div>
+			</a>
+			<ul class="side-menu">
+				<li>
+					<a href="/"><i class="bx bxs-dashboard"></i>Accounts</a>
+				</li>
+				<li>
+					<a href="/"><i class="bx bx-store-alt"></i>Tracker</a>
+				</li>
+				<li class="active">
+					<a href="/set_loader"><i class="bx bx-analyse"></i>Set Loader</a>
+				</li>
+				<li>
+					<a href="/config"><i class="bx bx-message-square-dots"></i>Config</a>
+				</li>
+				<li>
+					<a href="/error_log"><i class="bx bx-group"></i>Error Log</a>
+				</li>
+			</ul>
+			<ul class="side-menu"></ul>
+		</div>
+		<!-- End of Sidebar -->
+
+		<!-- Main Content -->
+		<div class="content">
+			<!-- Navbar -->
+			<nav>
+				<i class="bx bx-menu"></i>
+				<form action="#">
+					<div class="form-input" style="display: none">
+						<input type="search" placeholder="Search..." />
+						<button class="search-btn" type="submit">
+							<i class="bx bx-search"></i>
+						</button>
+					</div>
+				</form>
+				<input type="checkbox" id="theme-toggle" hidden />
+				<label for="theme-toggle" class="theme-toggle"></label>
+				<a href="#" class="notif">
+					<i class="bx bx-bell"></i>
+					<span class="count">12</span>
+				</a>
+			</nav>
+
+			<!-- End of Navbar -->
+
+			<main>
+				<div class="header">
+					<div class="left">
+						<h1>Set Loader</h1>
+					</div>
+
+					<div
+						style="
+							display: flex;
+							justify-content: center;
+							align-items: center;
+							gap: 10px;
+						"
+					></div>
+				</div>
+				<div
+					style="
+						display: flex;
+						gap: 30px;
+						justify-content: center;
+						align-items: top;
+					"
+				>
+					<form
+						id="set-upload-filters"
+						action="/upload"
+						method="post"
+						enctype="multipart/form-data"
+					>
+						<h1>Settings</h1>
+						<p>Choose Account</p>
+						<select class="dropdown" id="accountSelect" name="account">
 							{% if accounts %} {% for account in accounts %}
 							<option value="{{ account }}">{{ account }}</option>
 							{% endfor %} {% else %}
 							<option>No Accounts Found.</option>
 							{% endif %}
 						</select>
-						<!-- File upload section -->
-						<div class="filter-group">
-							<h2>Upload Sets</h2>
-							
-								<input type="file" name="files[]" multiple accept=".set" />
-								<button type="submit">Upload</button>
-							
+						<p>Choose Profile</p>
+						<select class="dropdown" id="profileSelect" name="profile">
+							<option value="New Profile">New Profile</option>
+						</select>
+						<div id="profileNameInputLabel">
+							<p>Choose Set Name</p>
 						</div>
-                              <div class="filter-group">
-                                   <label for="accountSelect">Only use new sets (will wipe current sets)</label>
-								<input type="checkbox" name="new" />
-							</form>
+						<div id="profileNameInput" class="upload-options">
+							<input
+								type="text"
+								id="profileName"
+								name="profileName"
+								value="MT5-Tracker-Profile"
+								required
+							/>
 						</div>
-					</aside>
-                    </form>
+						<p style="margin-top: 10px">Upload Sets</p>
+						<input
+							style="
+								margin-top: 5px;
+								margin-bottom: 5px;
+								transform: translateX(45px);
+							"
+							type="file"
+							name="files[]"
+							multiple
+							accept=".set"
+						/>
+						<button style="margin-top: 10px" class="button" type="submit">
+							Upload
+						</button>
+					</form>
 
-					<!-- Main content (Table and Graphs) -->
-					<div class="main-section">
-						<section class="table-section">
-							<h2>Sets</h2>
+					<div class="bottom-data">
+						<div class="orders">
+							<div class="header">
+								<i class="bx bx-receipt"></i>
+								<h3>Sets</h3>
+								<i class="bx bx-filter"></i>
+								<i class="bx bx-search"></i>
+							</div>
 							<table id="data-table">
 								<thead>
 									<tr>
 										<th>Set Name</th>
-										<!-- Add more headers as needed -->
+										<th>Symbol</th>
+										<th>Magic Number</th>
 									</tr>
 								</thead>
-								<tbody>
-									{% if sets %} {% for set in sets %}
-									<tr>
-										<td>{{ set }}</td>
-										<!-- Display other set information as needed -->
-									</tr>
-									{% endfor %} {% else %}
-									<tr>
-										<td colspan="9">No sets currently loaded.</td>
-									</tr>
-									{% endif %}
-								</tbody>
+								<tbody id="setsTableBody"></tbody>
 							</table>
-						</section>
+						</div>
+
+						<!-- End of Reminders-->
 					</div>
 				</div>
-			</div>
+			</main>
 		</div>
+
+		<script src="{{url_for('static', filename='setLoaderScript.js')}}"></script>
+		<script src="{{url_for('static', filename='test.js')}}"></script>
 	</body>
 </html>
