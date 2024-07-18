@@ -5,60 +5,68 @@ import chardet
 
 def write_chr_file(file_path, config):
     with open(file_path, 'w+') as file:
-        file.write("<chart>\n")
         write_chart_section(file, config['chart'])
-        file.write("</chart>\n")
-
         
 def write_chart_section(file, chart):
-    file.write(f"id={chart['id']}\n")
-    file.write(f"symbol={chart['symbol']}\n")
-    file.write(f"description={chart['description']}\n")
-    file.write(f"period_type={chart['period_type']}\n")
-    file.write(f"period_size={chart['period_size']}\n")
-    file.write(f"digits={chart['digits']}\n")
-    file.write(f"tick_size={chart['tick_size']}\n")
-    file.write(f"position_time={chart['position_time']}\n")
-    file.write(f"scale_fix={chart['scale_fix']}\n")
-    file.write("\n")
-    write_expert_section(file, chart['expert'])
-    write_window_section(file, chart['window'])
+    file.write("<chart>\n")
+    
+    for key, value in chart.items():
+        if key == 'expert':
+            write_expert_section(file, value)
+        elif key == 'window':
+            write_window_section(file, value)
+        else:
+            file.write(f"{key}={value}\n")
+    
+    file.write("</chart>\n")
 
 def write_expert_section(file, expert):
-    file.write("<expert>\n")
-    file.write(f"name={expert['name']}\n")
-    file.write(f"path={expert['path']}\n")
-    file.write(f"expertmode={expert['expertmode']}\n")
-    write_inputs_section(file, expert['inputs'])
-    file.write("</expert>\n\n")
-
+    file.write("\n<expert>\n")
+    
+    for key, value in expert.items():
+        if key == 'inputs':
+            write_inputs_section(file, value)
+        else:
+            file.write(f"{key}={value}\n")
+    
+    file.write("</expert>\n")
 
 def write_inputs_section(file, inputs):
-    file.write("<inputs>\n=\n")
+    file.write("\n<inputs>\n=\n")
+    
     for key, value in inputs.items():
         file.write(f"{key}={value}\n")
+    
     file.write("</inputs>\n")
 
-
 def write_window_section(file, window):
-    file.write("<window>\n")
-    write_indicator_section(file, window['indicator'])
-    write_object_section(file, window['object'])
-    file.write("</window>\n\n")
-
+    file.write("\n<window>\n")
+    
+    for key, value in window.items():
+        if key == 'indicator':
+            write_indicator_section(file, value)
+        elif key == 'object':
+            write_object_section(file, value)
+        else:
+            file.write(f"{key}={value}\n")
+    
+    file.write("</window>\n")
 
 def write_indicator_section(file, indicator):
-    file.write("<indicator>\n")
+    file.write("\n<indicator>\n")
+    
     for key, value in indicator.items():
         file.write(f"{key}={value}\n")
+    
     file.write("</indicator>\n")
 
 def write_object_section(file, obj):
-    file.write("<object>\n")
+    file.write("\n<object>\n")
+    
     for key, value in obj.items():
         file.write(f"{key}={value}\n")
+    
     file.write("</object>\n")
-
 
 def parseSetFile(file_path):
      with open(file_path, 'r') as file:
@@ -76,94 +84,56 @@ def parseSetFile(file_path):
      return config
 
 def parse_chr_file(file_path):
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
-
-    config = {
-        'chart': {
-            'expert': {
-                'inputs': {}
-            },
-            'window': {
-                'indicator': {},
-                'object': {}
-            }
-        }
-    }
-
-    current_section = None  # Track the current section we are parsing
-    current_inputs = None   # Track if we are in the 'inputs' section
-
-    for line in lines:
-        line = line.strip()
-        if line.startswith('<chart>'):
-            current_section = 'chart'
-        elif line.startswith('<expert>'):
-            current_section = 'expert'
-        elif line.startswith('<inputs>'):
-            current_section = 'inputs'
-            current_inputs = config['chart']['expert']['inputs']
-        elif line.startswith('<window>'):
-            current_section = 'window'
-        elif line.startswith('<indicator>'):
-            current_section = 'indicator'
-        elif line.startswith('<object>'):
-            current_section = 'object'
-        elif line.startswith('</'):
-            current_section = None
-        elif '=' in line and current_section:
-            key, value = line.split('=', 1)
-            key = key.strip()
-            value = value.strip()
-            if current_section == 'chart':
-                if key == 'id':
-                    config['chart']['id'] = int(value)
-                elif key == 'symbol':
-                    config['chart']['symbol'] = value
-                elif key == 'description':
-                    config['chart']['description'] = value
-                elif key == 'period_type':
-                    config['chart']['period_type'] = int(value)
-                elif key == 'period_size':
-                    config['chart']['period_size'] = int(value)
-                elif key == 'digits':
-                    config['chart']['digits'] = int(value)
-                elif key == 'tick_size':
-                    config['chart']['tick_size'] = float(value)
-                elif key == 'position_time':
-                    config['chart']['position_time'] = int(value)
-                elif key == 'scale_fix':
-                    config['chart']['scale_fix'] = int(value)
-            elif current_section == 'expert':
-                if key == 'name':
-                    config['chart']['expert']['name'] = value
-                elif key == 'path':
-                    config['chart']['expert']['path'] = value
-                elif key == 'expertmode':
-                    config['chart']['expert']['expertmode'] = int(value)
-            elif current_section == 'indicator':
-                config['chart']['window']['indicator'][key] = value
-            elif current_section == 'object':
-                config['chart']['window']['object'][key] = value
-            elif current_section == 'inputs' and current_inputs is not None:
-                current_inputs[key] = value
-
-    return config
-
-
-def doesProfileExist(dataPath, profileName):
-    try:
-        profilePath = os.path.join(dataPath, 'MQL5', 'Profiles', 'Charts', profileName)
-        amountOfCharts = len([f for f in os.listdir(profilePath) if os.path.isfile(os.path.join(profilePath, f))])
-        return amountOfCharts
-    except:
-        return False
+     with open(file_path, 'rb') as file:
+          content = file.read()
+          content = content.decode('utf-16le')
+     config = {
+          'chart': {
+               'expert': {
+                    'inputs': {}},
+               'window': {
+                    'indicator': {},
+                    'object': {}
+               }}}
+     current_section = []
+     content = content[1:]
+     lines = content.split('\n')
+     for line in lines:
+          try:
+               #print(line[0])
+               line = line[:-1]
+               #print(line[-1])
+               if line[0] == "<" and line[-1] == ">":
+                    #print(line)
+                    if "/" not in line:
+                         current_section.append(line[1:-1].lower())
+                    else:
+                         current_section.remove(line[1:-1].lower().replace("/", ""))
+                    #print(current_section)
+               elif "=" in line and len(current_section) != 0:
+                    #key, value = map(str.strip, line.split("=", 1)
+                    #line = line.decode('utf-16le')
+                    key, value = line.split("=")
+                    #print(key,value)
+                    if len(current_section) == 1:
+                         config[current_section[0]][key] = value
+                    if len(current_section) == 2:
+                         config[current_section[0]][current_section[1]][key] = value
+                    if len(current_section) == 3:
+                         config[current_section[0]][current_section[1]][current_section[2]][key] = value
+                    if len(current_section) == 4:
+                         config[current_section[0]][current_section[1]][current_section[2]][current_section[3]][key] = value
+          except Exception as e:
+               #print(e)
+               pass 
         
 
-def loadSets(account_id, profileName):
+     return config
+
+def loadSets(account_id):
     user_profile = os.environ['USERPROFILE']
     databaseFolder = os.path.join(user_profile, 'AppData', 'Local', 'Mt5TrackerDatabase')
-    setsFolder = os.path.join(databaseFolder, "Sets", str(account_id), profileName)
+    setsFolder = os.path.join(databaseFolder, "Sets", str(account_id))
     config = database.getConfig()
     terminalPath = ""
     accounts = database.getAccounts()
@@ -171,31 +141,34 @@ def loadSets(account_id, profileName):
         if account["login"] == account_id:
             terminalPath = account["terminalFilePath"]
         
+    profileName = "MT5-Tracker-Profile"
     directory = os.getcwd()
     
     dataPath = tracker.getDataPath(account_id)
     powName = config["powName"]
+    
     defaultChartPath = f"{directory}\\chart01.chr"
     chartNumber = 1
-
-    chartsPath = os.path.join(dataPath, 'MQL5', 'Profiles', 'Charts', profileName)
-
-    if os.path.isdir(chartsPath):
-        chartNumber = len([f for f in os.listdir(chartsPath) if os.path.isfile(os.path.join(chartsPath, f))])
+    
+    ## Removing Current Profile
+    if os.path.exists(f"{dataPath}\\MQL5\\Presets\\{profileName}"):
+        for file in os.listdir(f"{dataPath}\\MQL5\\Presets\\{profileName}"):
+            os.remove(f"{dataPath}\\MQL5\\Presets\\{profileName}\\{file}")
+        os.removedirs(f"{dataPath}\\MQL5\\Presets\\{profileName}")
+    if os.path.exists(f"{dataPath}\\MQL5\\Profiles\\Charts\\{profileName}"):
+        for file in os.listdir(f"{dataPath}\\MQL5\\Profiles\\Charts\\{profileName}"):
+            os.remove(f"{dataPath}\\MQL5\\Profiles\\Charts\\{profileName}\\{file}")
     else:
-        os.makedirs(chartsPath)
-        chartNumber = 1
+        os.makedirs(f"{dataPath}\\MQL5\\Profiles\\Charts\\{profileName}")
         
     currentSets = database.getSets(account_id)
     currentMagics = []
     for set in currentSets:
-        try:
-            currentMagics.append(set["magic"])
-        except:
-            pass
+        currentMagics.append(set["magic"])
     
     for setFile in os.listdir(setsFolder):
         defaultConfig = parse_chr_file(defaultChartPath)
+        temp = []
         magicNumber = setFile.split("_")[-1].replace(".set","")
         symbol = setFile.split(" ")[0]
         
@@ -243,21 +216,10 @@ def loadSets(account_id, profileName):
     
     with open(terminalConfigPath, 'w') as configfile:
         terminalConfig.write(configfile)
-        
+    
 def addCopier(masterAccountID, slaveAccountID, magicNumbers):
     user_profile = os.environ['USERPROFILE']
     databaseFolder = os.path.join(user_profile, 'AppData', 'Local', 'Mt5TrackerDatabase')
-    
-    
-    masterTerminalPath = ""
-    slaveTerminalPath = ""
-    
-    accounts = database.getAccounts()
-    for account in accounts:
-        if account["login"] == masterAccountID:
-            masterTerminalPath = account["terminalFilePath"]
-        if account["login"] == slaveAccountID:
-            slaveTerminalPath = account["terminalFilePath"]
         
     profileName = "MT5-Tracker-Profile"
     directory = os.getcwd()
@@ -283,19 +245,19 @@ def addCopier(masterAccountID, slaveAccountID, magicNumbers):
 
     masterProfilePath = os.path.join(masterDataPath, "MQL5", "Profiles", "Charts", profileName)
     Path(masterProfilePath).mkdir(parents=True, exist_ok=True)
-    masterChartNumber = len([f for f in os.listdir(masterProfilePath) if os.path.isfile(os.path.join(masterProfilePath, f))]) + 1
+    masterChartNumber = len([f for f in os.listdir(masterProfilePath) if os.path.isfile(os.path.join(masterProfilePath, f))])
     masterChrFilePath = os.path.join(masterProfilePath, f"chart0{masterChartNumber}.chr")
     write_chr_file(masterChrFilePath, masterConfig)
     
     slaveProfilePath = os.path.join(slaveDataPath, "MQL5", "Profiles", "Charts", profileName)
     Path(slaveProfilePath).mkdir(parents=True, exist_ok=True)
-    slaveChartNumber = len([f for f in os.listdir(slaveProfilePath) if os.path.isfile(os.path.join(slaveProfilePath, f))]) + 1
+    slaveChartNumber = len([f for f in os.listdir(slaveProfilePath) if os.path.isfile(os.path.join(slaveProfilePath, f))])
     slaveChrFilePath = os.path.join(slaveProfilePath, f"chart0{slaveChartNumber}.chr")
     write_chr_file(slaveChrFilePath, slaveConfig)
     
     
-    masterTerminalConfigPath = os.path.join(tracker.getDataPath(masterAccountID), "config", "common.ini")
-    controller.closeTerminal(masterTerminalPath)
+    masterTerminalConfigPath = os.path.join(masterDataPath, "config", "common.ini")
+    controller.closeTerminal(masterTerminalConfigPath)
     masterTerminalConfig = read_ini_file(masterTerminalConfigPath)
     masterTerminalConfig["Charts"]["ProfileLast"] = profileName
     masterTerminalConfig["Experts"]["enabled"] = "1"
@@ -303,14 +265,15 @@ def addCopier(masterAccountID, slaveAccountID, magicNumbers):
     with open(masterTerminalConfigPath, 'w') as configfile:
         masterTerminalConfig.write(configfile)
         
-    slaveTerminalConfigPath = os.path.join(tracker.getDataPath(slaveAccountID), "config", "common.ini")
-    controller.closeTerminal(slaveTerminalPath)
+    slaveTerminalConfigPath = os.path.join(slaveDataPath, "config", "common.ini")
+    controller.closeTerminal(slaveTerminalConfigPath)
     slaveTerminalConfig = read_ini_file(slaveTerminalConfigPath)
     slaveTerminalConfig["Charts"]["ProfileLast"] = profileName
     slaveTerminalConfig["Experts"]["enabled"] = "1"
     slaveTerminalConfig["Experts"]["allowdllimport"] = "1"
     with open(slaveTerminalConfigPath, 'w') as configfile:
         slaveTerminalConfig.write(configfile)
+        
     
     
         

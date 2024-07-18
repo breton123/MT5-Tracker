@@ -1,7 +1,7 @@
 import MetaTrader5 as mt5
 import datetime as datetime
-import time, os, json, database, controller
-from datetime import datetime
+import time, os, json, database, controller, statistics
+from datetime import datetime, timedelta
 
 #databaseFolder = "C:\\Users\\Louis\\Desktop\\MetaTrader Controller\\database"
 user_profile = os.environ['USERPROFILE']
@@ -112,9 +112,11 @@ def getTradeAmount(magic):
 
     for order in orders:
         try:
-            orderMagic = order[6]
+            order = order._asdict()
+            orderMagic = order["magic"]
             if orderMagic == magic:
-                amount += 1
+                if order["reason"] == 4:
+                    amount += 1
         except KeyError as e:
             errMsg = f"Magic: {magic}  Task: (Get Trade Amount)  KeyError: {e} - Error accessing order details"
             print(errMsg)
@@ -290,6 +292,42 @@ def createSet(magic):
         database.log_error(errMsg)
         daysLive = 0
 
+    try:
+        lotSizes = getLotSizes(magic)
+    except Exception as e:
+        errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving lot sizes: {e}"
+        print(errMsg)
+        database.log_error(errMsg)
+        lotSizes = {
+            "minLotSize": 0,
+            "maxLotSize": 0,
+            "avgLotSize": 0
+        }
+
+    try:
+        winRate = getWinRate(magic)
+    except Exception as e:
+        errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving win rate: {e}"
+        print(errMsg)
+        database.log_error(errMsg)
+        winRate = {
+            "winRate": "0%",
+            "wins": 0,
+            "losses": 0
+        }
+        
+    try:
+        tradeTimes = getTradeTimes(magic)
+    except Exception as e:
+        errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving trade times: {e}"
+        print(errMsg)
+        database.log_error(errMsg)
+        tradeTimes = {
+            "minTradeTime": 0,
+            "maxTradeTime": 0,
+            "avgTradeTime": 0
+        }
+        
     setData = {
         "stats": {
             "setName": setName,
@@ -298,8 +336,18 @@ def createSet(magic):
             "profit": historicalProfit,
             "trades": tradeAmount,
             "maxDrawdown": "-",
+            "avgDrawdown": "-",
             "profitFactor": profitFactor,
             "returnOnDrawdown": "-",
+            "minLotSize": lotSizes["minLotSize"],
+            "maxLotSize": lotSizes["maxLotSize"],
+            "avgLotSize": lotSizes["avgLotSize"],
+            "winRate": winRate["winRate"],
+            "wins": winRate["wins"],
+            "losses": winRate["losses"],
+            "minTradeTime": tradeTimes["minTradeTime"],
+            "maxTradeTime": tradeTimes["maxTradeTime"],
+            "avgTradeTime": tradeTimes["avgTradeTime"],
             "daysLive": daysLive
         },
         "trades": [],
@@ -503,6 +551,158 @@ def getProfitFactor(magic):
         return None
 
 
+def getLotSizes(magic):
+    lotSizes = []
+    try:
+        orders = mt5.history_deals_get(0, datetime.now())
+        for order in orders:
+            order = order._asdict()
+            if order["magic"] == magic:
+                lotSizes.append(order["volume"])
+    except Exception as e:
+        errMsg = f"Task: (Get All Magics - History Deals)  Error retrieving historical deals: {e}"
+        print(errMsg)
+        database.log_error(errMsg)
+        return {
+            "minLotSize": 0,
+            "maxLotSize": 0,
+            "avgLotSize": 0
+        }
+
+    try:
+        positions = mt5.positions_get()
+        for position in positions:
+            position = position._asdict()
+            if position["magic"] == magic:
+                lotSizes.append(position["volume"])
+    except Exception as e:
+        errMsg = f"Task: (Get All Magics - Positions)  Error retrieving positions: {e}"
+        print(errMsg)
+        database.log_error(errMsg)
+        return {
+            "minLotSize": round(min(lotSizes),2),
+            "maxLotSize": round(max(lotSizes),2),
+            "avgLotSize": round(statistics.mean(lotSizes), 2)
+        }
+
+    try:
+        return {
+                "minLotSize": round(min(lotSizes),2),
+                "maxLotSize": round(max(lotSizes),2),
+                "avgLotSize": round(statistics.mean(lotSizes), 2)
+            }
+    except:
+        return {
+                "minLotSize": 0,
+                "maxLotSize": 0,
+                "avgLotSize": 0
+            }
+
+def getWinRate(magic):
+    wins = 0
+    losses = 0
+    trades = getTradeAmount(magic)
+    try:
+        orders = mt5.history_deals_get(0, datetime.now())
+        for order in orders:
+            order = order._asdict()
+            if order["magic"] == magic:
+                if order["reason"] == 4:
+                    if order["profit"] >= 0:
+                        wins += 1
+                    elif order["profit"] < 0:
+                        losses += 1          
+    
+    except Exception as e:
+        errMsg = f"Task: (Get Win Rate - History Deals)  Error retrieving historical deals: {e}"
+        print(errMsg)
+        database.log_error(errMsg)
+        return {
+            "winRate": "0%",
+            "wins": 0,
+            "losses": 0
+        }
+        
+    try:
+        return {
+                "winRate": str(round((wins / trades)*100, 0)).replace(".0", "") + "%",
+                "wins": wins,
+                "losses": losses
+            }
+    except ZeroDivisionError as e:
+        return {
+                "winRate": "0%",
+                "wins": wins,
+                "losses": losses
+            }
+
+def getTradeTimes(magic):
+    try:
+        deals = mt5.history_deals_get(0, datetime.now())
+
+        deals = [deal for deal in deals if deal.magic == magic]
+        # Dictionary to track open times
+        open_trades = {}
+        trade_durations = []
+
+        # Process each deal
+        for deal in deals:
+            ticket = deal.position_id
+            if deal.reason == 3:
+                # Trade opening
+                open_trades[ticket] = deal.time
+            else:
+                # Trade closing
+                if ticket in open_trades:
+                    open_time = open_trades.pop(ticket)
+                    close_time = deal.time
+                    trade_duration = close_time - open_time
+                    trade_durations.append(trade_duration)
+
+        if len(trade_durations) == 0:
+            return {
+                "minTradeTime": 0,
+                "maxTradeTime": 0,
+                "avgTradeTime": 0
+            }
+        else:
+            # Convert trade durations to timedeltas
+            trade_durations = [timedelta(seconds=duration) for duration in trade_durations]
+            
+            def format_duration(duration):
+                total_seconds = int(duration.total_seconds())
+                hours, remainder = divmod(total_seconds, 3600)
+                minutes, seconds_remainder = divmod(remainder, 60)
+                if len(str(hours)) == 1:
+                    hours = f"0{hours}"
+                if len(str(minutes)) == 1:
+                    minutes = f"0{minutes}"
+                if len(str(seconds_remainder)) == 1:
+                    seconds_remainder = f"0{seconds_remainder}"
+                return f"{hours}:{minutes}:{seconds_remainder}"
+            
+            # Calculate min, max, and average trade duration
+            min_trade_duration = format_duration(min(trade_durations))
+            max_trade_duration = format_duration(max(trade_durations))
+            avg_trade_duration = format_duration(sum(trade_durations, timedelta()) / len(trade_durations))
+            
+            
+            return {
+                "minTradeTime": min_trade_duration,
+                "maxTradeTime": max_trade_duration,
+                "avgTradeTime": avg_trade_duration
+            }
+    except Exception as e:
+        print(f"Error: {e}")
+        
+        return {
+            "minTradeTime": 0,
+            "maxTradeTime": 0,
+            "avgTradeTime": 0
+        }
+        
+
+
 def getDrawdown():
     try:
         positions = mt5.positions_get()
@@ -551,11 +751,10 @@ def getDrawdown():
         try:
             currentDrawdown = round(profitList[magic], 2)
             currentProfit = round(profitList[magic], 2)
-            print(currentDrawdown, currentProfit, magic)
             if float(currentDrawdown) > 0:
                 currentDrawdown = 0
             
-            print(f"Uploading drawdown {currentDrawdown} and profit {currentProfit} for magic {magic}")
+            print(f"Magic: {magic}  Drawdown: {currentDrawdown}  Profit: {currentProfit}")
             database.updateDrawdown(magic, currentDrawdown, currentTime, account)
             database.updateEquity(magic, currentProfit, currentTime, account)
             
@@ -577,8 +776,9 @@ def getDrawdown():
             
             if maxD == "-":
                 print(f"New Max Drawdown for {magic}")
+                historicalProfit = getHistoricalProfit(magic)
                 try:
-                    returnOnDrawdown = database.getReturnOnDrawdown(magic, currentDrawdown, account)
+                    returnOnDrawdown = database.getReturnOnDrawdown(magic, currentDrawdown, account, historicalProfit)
                     database.updateMaxDrawdown(magic, currentDrawdown, account)
                     database.updateReturnOnDrawdown(magic, returnOnDrawdown, account)
                 except Exception as e:
@@ -587,8 +787,9 @@ def getDrawdown():
                     database.log_error(errMsg)
             elif currentDrawdown < float(maxD):
                 print(f"New Max Drawdown for {magic}")
+                historicalProfit = getHistoricalProfit(magic)
                 try:
-                    returnOnDrawdown = database.getReturnOnDrawdown(magic, currentDrawdown, account)
+                    returnOnDrawdown = database.getReturnOnDrawdown(magic, currentDrawdown, account, historicalProfit)
                     database.updateMaxDrawdown(magic, currentDrawdown, account)
                     database.updateReturnOnDrawdown(magic, returnOnDrawdown, account)
                 except Exception as e:
@@ -599,6 +800,7 @@ def getDrawdown():
             errMsg = f"Account: {account}  Magic: {magic}  Task: (Get Drawdown)  Unexpected error: {e}"
             print(errMsg)
             database.log_error(errMsg)
+    return currentTime
 
 def getDataPath(account_id):
     terminalData = mt5.terminal_info()._asdict()
@@ -608,6 +810,7 @@ def trackData(accountData):
     try:
         try:
             openMt5(accountData)
+            database.resetErrorLog()
             account = getAccount()
         except Exception as e:
             errMsg = f"Account: {account}  Task: (Track Data)  Error opening MT5 terminal: {e}"
@@ -626,7 +829,7 @@ def trackData(accountData):
         database.updateAccountStatus(account, "tracking")
         while True:
             try:
-                getDrawdown()
+                updateTime = getDrawdown()
             except Exception as e:
                 errMsg = f"Account: {account}  Task: (Track Data)  Error in getDrawdown: {e}"
                 print(errMsg)
@@ -645,6 +848,30 @@ def trackData(accountData):
                 errMsg = f"Account: {account}  Task: (Track Data)  Error updating days live: {e}"
                 print(errMsg)
                 database.log_error(errMsg)
+                
+            try:
+                for magic in getAllMagics():
+                    database.updateLotSizes(account, magic, getLotSizes(magic))
+            except Exception as e:
+                errMsg = f"Account: {account}  Task: (Track Data)  Error updating lot sizes: {e}"
+                print(errMsg)
+                database.log_error(errMsg)
+                
+            try:
+                for magic in getAllMagics():
+                    database.updateWinRate(account, magic, getWinRate(magic))
+            except Exception as e:
+                errMsg = f"Account: {account}  Task: (Track Data)  Error updating win rate: {e}"
+                print(errMsg)
+                database.log_error(errMsg)
+                
+            try:
+                for magic in getAllMagics():
+                    database.updateTradeTimes(account, magic, getTradeTimes(magic))
+            except Exception as e:
+                errMsg = f"Account: {account}  Task: (Track Data)  Error updating trade times: {e}"
+                print(errMsg)
+                database.log_error(errMsg)
 
             try:
                 if not controller.isTerminalOpen(accountData["terminalFilePath"]):
@@ -653,7 +880,8 @@ def trackData(accountData):
                 errMsg = f"Account: {account}  Task: (Track Data)  Error updating days live: {e}"
                 print(errMsg)
                 database.log_error(errMsg)
-            
+            updateTime = datetime.fromtimestamp(updateTime)
+            print(f"Latest Update: {updateTime}")
             time.sleep(10)
     except Exception as e:
         errMsg = f"Account: {account}  Task: (Track Data)  Unexpected error: {e}"

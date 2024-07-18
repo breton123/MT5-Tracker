@@ -1,6 +1,7 @@
+import statistics
 import MetaTrader5 as mt5
 import datetime as datetime
-import time, os, json, tracker, portalocker
+import time, os, json, tracker, portalocker, loader
 from datetime import datetime
 
 user_profile = os.environ['USERPROFILE']
@@ -34,6 +35,8 @@ def updateAccountStatus(account, newStatus):
 
                 # Write updated data back to JSON file
                 json.dump(accountData, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
             finally:
                 portalocker.unlock(file)
 
@@ -57,6 +60,7 @@ def updateAccountStatus(account, newStatus):
         errMsg = f"Account: {account}  Task: (Insert Trade)  Unexpected error: {e} occurred while updating status"
         print(errMsg)
         log_error(errMsg)
+
 
 def getConfig():
     user_profile = os.environ['USERPROFILE']
@@ -175,6 +179,10 @@ def log_error(error_message):
     except IOError as e:
         print(f"Task: (Log Error)  Failed to write to log file: {e}")
 
+def resetErrorLog():
+    with open(os.path.join(databaseFolder, 'errorlog.txt'), "w+") as file:
+        file.write("")
+
 def insertSet(newSet, account):
     account = str(account)
     try:
@@ -203,6 +211,8 @@ def insertSet(newSet, account):
                     try:
                         portalocker.lock(file, portalocker.LOCK_EX)
                         json.dump(newSet, file, indent=4)
+                        file.flush()  # Ensure all data is written to disk
+                        os.fsync(file.fileno())
                     except TypeError as e:
                         errMsg = f"Account: {account}  Magic: {magic}  Task: (Insert Set)  TypeError: {e} - An error occurred while encoding JSON data"
                         print(errMsg)
@@ -272,6 +282,8 @@ def updateProfit(magic, profit, account):
 
                 # Write updated data back to JSON file
                 json.dump(set_data, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
             finally:
                 portalocker.unlock(file)
 
@@ -342,6 +354,8 @@ def insertTrade(magic, trade, account):
 
                 # Write updated data back to JSON file
                 json.dump(set_data, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
             finally:
                 portalocker.unlock(file)
 
@@ -425,7 +439,12 @@ def getFilterData(account):
             "minReturnOnDrawdown": float('inf'),
             "maxReturnOnDrawdown": 0,
             "minDaysLive": float('inf'),
-            "maxDaysLive": 0
+            "maxDaysLive": 0,
+            "minAvgDrawdown": float('inf'),
+            "maxAvgDrawdown": 0,
+            "minWinRate": float('inf'),
+            "maxWinRate": 0
+            
         }
         
         for set_data in allSets:
@@ -435,10 +454,22 @@ def getFilterData(account):
             profitFactor = set_data["stats"]["profitFactor"]
             returnOnDrawdown = set_data["stats"]["returnOnDrawdown"]
             daysLive = set_data["stats"]["daysLive"]
+            avgDrawdown = set_data["stats"]["avgDrawdown"]
+            winRate = set_data["stats"]["winRate"]
+            
+            try:
+                winRate = int(winRate.replace("%",""))
+            except:
+                winRate = 0
+            
+            if winRate == "":
+                winRate = 0
             
             # Handle cases where maxDrawdown, returnOnDrawdown, or daysLive may be "-"
             if maxDrawdown == "-":
                 maxDrawdown = 0
+            if avgDrawdown == "-":
+                avgDrawdown = 0
             if returnOnDrawdown == "-":
                 returnOnDrawdown = 0
             if not daysLive:
@@ -463,6 +494,10 @@ def getFilterData(account):
                 data["maxReturnOnDrawdown"] = max(data["maxReturnOnDrawdown"], returnOnDrawdown)
                 data["minDaysLive"] = min(data["minDaysLive"], daysLive)
                 data["maxDaysLive"] = max(data["maxDaysLive"], daysLive)
+                data["minAvgDrawdown"] = min(data["minAvgDrawdown"], avgDrawdown)
+                data["maxAvgDrawdown"] = max(data["maxAvgDrawdown"], avgDrawdown)
+                data["minWinRate"] = min(data["minWinRate"], winRate)
+                data["maxWinRate"] = max(data["maxWinRate"], winRate)
             except:
                 data["minProfit"] = 0
                 data["maxProfit"] = 0
@@ -476,15 +511,66 @@ def getFilterData(account):
                 data["maxReturnOnDrawdown"] = 0
                 data["minDaysLive"] = 0
                 data["maxDaysLive"] = 0
+                data["minAvgDrawdown"] = 0
+                data["maxAvgDrawdown"] = 0
+                data["minWinRate"] = 0
+                data["maxWinRate"] = 0
         return data
     
     except Exception as e:
         errMsg = f"Error in getFilterData for account '{account}': {e}"
         print(errMsg)
         log_error(errMsg)
-        return None
+        data = {}
+        data["minProfit"] = 0
+        data["maxProfit"] = 0
+        data["minTrades"] = 0
+        data["maxTrades"] = 0
+        data["minDrawdown"] = 0
+        data["maxDrawdown"] = 0
+        data["minProfitFactor"] = 0
+        data["maxProfitFactor"] = 0
+        data["minReturnOnDrawdown"] = 0
+        data["maxReturnOnDrawdown"] = 0
+        data["minDaysLive"] = 0
+        data["maxDaysLive"] = 0
+        data["minAvgDrawdown"] = 0
+        data["maxAvgDrawdown"] = 0
+        data["minWinRate"] = 0
+        data["maxWinRate"] = 0
+        return data
 
-          
+def getProfileSets(account, profile):
+    dataPath = tracker.getDataPath(account)
+    profilePath = os.path.join(dataPath, "MQL5", "Profiles", "Charts", profile)
+    profileSets = []
+    try:
+        for chartFile in os.listdir(profilePath):
+            print(chartFile)
+            chartPath = os.path.join(dataPath, "MQL5", "Profiles", "Charts", profile, chartFile)
+            try:
+                print("made it here")
+                chartConfig = loader.parse_chr_file(chartPath)
+                print(chartConfig)
+                chartData = {
+                    "setName": chartConfig["chart"]["expert"]["inputs"]["StrategyDescription"],
+                    "symbol": chartConfig["chart"]["symbol"],
+                    "magic": chartConfig["chart"]["expert"]["inputs"]["MAGIC_NUMBER"]
+                }
+                profileSets.append(chartData)
+            except:
+                pass
+    except Exception as e:
+        print(f"Failed to get profile sets {e}")
+        
+    return profileSets
+
+def getProfiles(account):
+    dataPath = tracker.getDataPath(account)
+    profilesPath = os.path.join(dataPath, "MQL5", "Profiles", "Charts")
+    profiles = [d for d in os.listdir(profilesPath) if os.path.isdir(os.path.join(profilesPath, d))]
+    return profiles
+
 def getDrawdownGraphData(account):
     try:
         allSets = getFrontendSets(account)
@@ -573,6 +659,10 @@ def updateProfitFactor(magic, account):
 
                 # Write updated data back to JSON file
                 json.dump(set_data, file, indent=4)
+                
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
+
             finally:
                 portalocker.unlock(file)
 
@@ -629,6 +719,18 @@ def updateDrawdown(magic, drawdown, time, account):
                 # Read existing data from JSON file
                 set_data = json.load(file)
 
+                ## Updating average drawdown
+                allDrawdown = []
+                for setDrawdown in set_data["drawdown"]:
+                    allDrawdown.append(setDrawdown["drawdown"])
+                
+                allDrawdown.append(drawdown)
+                averageDrawdown = round(statistics.mean(allDrawdown),2)
+                
+                set_data["stats"]["avgDrawdown"] = averageDrawdown
+                
+                print(f"{magic} Average: {averageDrawdown}")
+                
                 # Append new drawdown data
                 set_data["drawdown"].append({
                     "time": time,
@@ -641,6 +743,8 @@ def updateDrawdown(magic, drawdown, time, account):
 
                 # Write updated data back to JSON file
                 json.dump(set_data, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
             finally:
                 portalocker.unlock(file)
 
@@ -740,6 +844,8 @@ def updateEquity(magic, profit, time, account):
 
                 # Write back the updated set JSON to file
                 json.dump(set_data, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
             finally:
                 portalocker.unlock(file)
 
@@ -804,25 +910,160 @@ def getSet(magic, account):
         log_error(errMsg)
         return {}
 
-     
-def getReturnOnDrawdown(magic, drawdown, account):
+    
+def updateLotSizes(account, magic, lotSizes):
+    account = str(account)
     try:
-        setFile = getSet(magic, account)
-        profit = setFile["stats"]["profit"]
-        try:
-          returnOnDrawdown = round(profit / abs(float(drawdown)), 2)
-        except:
-             returnOnDrawdown = "-"
-        return returnOnDrawdown
-    except KeyError as e:
-        errMsg = f"Account: {account}  Magic: {magic}  Task: (Get Return on Drawdown)  KeyError: {e} - Error accessing JSON data"
-        print(errMsg)
-        log_error(errMsg)
-    except Exception as e:
-        errMsg = f"Account: {account}  Magic: {magic}  Task: (Get Return on Drawdown)  Unexpected error: {e}"
-        print(errMsg)
-        log_error(errMsg)
+        file_path = os.path.join(databaseFolder, account, f"{magic}.json")
 
+        # Lock the file for reading and writing
+        with open(file_path, "r+") as file:
+            try:
+                portalocker.lock(file, portalocker.LOCK_EX)
+
+                # Load JSON data from file
+                set_data = json.load(file)
+
+                # Update daysLive in the loaded data
+                set_data["stats"]["minLotSize"] = lotSizes["minLotSize"]
+                set_data["stats"]["maxLotSize"] = lotSizes["maxLotSize"]
+                set_data["stats"]["avgLotSize"] = lotSizes["avgLotSize"]
+
+                # Move the file pointer to the beginning of the file to overwrite it
+                file.seek(0)
+                file.truncate()
+
+                # Write updated data back to JSON file
+                json.dump(set_data, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
+            finally:
+                portalocker.unlock(file)
+
+    except portalocker.LockException as e:
+        errMsg = f"Account: {account}  Task: (Update Lot Size)  LockException: {e} - Failed to acquire lock for file {file_path}"
+        print(errMsg)
+        log_error(errMsg)
+    
+    except FileNotFoundError:
+        errMsg = f"Account: {account}  Task: (Update Lot Size)  File {magic}.json not found"
+        print(errMsg)
+        log_error(errMsg)
+    
+    except KeyError as e:
+        errMsg = f"Account: {account}  Magic: {magic}  Task: (Update Lot Size)  KeyError: {e} - Error accessing JSON data"
+        print(errMsg)
+        log_error(errMsg)
+    
+    except Exception as e:
+        errMsg = f"Account: {account}  Task: (Update Lot Size)  Unexpected error: {e}"
+        print(errMsg)
+        log_error(errMsg)
+ 
+def updateTradeTimes(account, magic, tradeTimes):
+    account = str(account)
+    try:
+        file_path = os.path.join(databaseFolder, account, f"{magic}.json")
+
+        # Lock the file for reading and writing
+        with open(file_path, "r+") as file:
+            try:
+                portalocker.lock(file, portalocker.LOCK_EX)
+
+                # Load JSON data from file
+                set_data = json.load(file)
+
+                # Update daysLive in the loaded data
+                set_data["stats"]["minTradeTime"] = tradeTimes["minTradeTime"]
+                set_data["stats"]["maxTradeTime"] = tradeTimes["maxTradeTime"]
+                set_data["stats"]["avgTradeTime"] = tradeTimes["avgTradeTime"]
+
+                # Move the file pointer to the beginning of the file to overwrite it
+                file.seek(0)
+                file.truncate()
+
+                # Write updated data back to JSON file
+                json.dump(set_data, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
+            finally:
+                portalocker.unlock(file)
+
+    except portalocker.LockException as e:
+        errMsg = f"Account: {account}  Task: (Update Trade Times)  LockException: {e} - Failed to acquire lock for file {file_path}"
+        print(errMsg)
+        log_error(errMsg)
+    
+    except FileNotFoundError:
+        errMsg = f"Account: {account}  Task: (Update Trade Times)  File {magic}.json not found"
+        print(errMsg)
+        log_error(errMsg)
+    
+    except KeyError as e:
+        errMsg = f"Account: {account}  Magic: {magic}  Task: (Update Trade Times)  KeyError: {e} - Error accessing JSON data"
+        print(errMsg)
+        log_error(errMsg)
+    
+    except Exception as e:
+        errMsg = f"Account: {account}  Task: (Update Trade Times)  Unexpected error: {e}"
+        print(errMsg)
+        log_error(errMsg)       
+
+def updateWinRate(account, magic, winRates):
+    account = str(account)
+    try:
+        file_path = os.path.join(databaseFolder, account, f"{magic}.json")
+
+        # Lock the file for reading and writing
+        with open(file_path, "r+") as file:
+            try:
+                portalocker.lock(file, portalocker.LOCK_EX)
+
+                # Load JSON data from file
+                set_data = json.load(file)
+
+                # Update daysLive in the loaded data
+                set_data["stats"]["winRate"] = winRates["winRate"]
+                set_data["stats"]["wins"] = winRates["wins"]
+                set_data["stats"]["losses"] = winRates["losses"]
+
+                # Move the file pointer to the beginning of the file to overwrite it
+                file.seek(0)
+                file.truncate()
+
+                # Write updated data back to JSON file
+                json.dump(set_data, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
+            finally:
+                portalocker.unlock(file)
+
+    except portalocker.LockException as e:
+        errMsg = f"Account: {account}  Task: (Update Win Rate)  LockException: {e} - Failed to acquire lock for file {file_path}"
+        print(errMsg)
+        log_error(errMsg)
+    
+    except FileNotFoundError:
+        errMsg = f"Account: {account}  Task: (Update Win Rate)  File {magic}.json not found"
+        print(errMsg)
+        log_error(errMsg)
+    
+    except KeyError as e:
+        errMsg = f"Account: {account}  Magic: {magic}  Task: (Update Win Rate)  KeyError: {e} - Error accessing JSON data"
+        print(errMsg)
+        log_error(errMsg)
+    
+    except Exception as e:
+        errMsg = f"Account: {account}  Task: (Update Win Rate)  Unexpected error: {e}"
+        print(errMsg)
+        log_error(errMsg)
+    
+def getReturnOnDrawdown(magic, drawdown, account, profit):
+    try:
+        returnOnDrawdown = round(profit / abs(float(drawdown)), 2)
+    except:
+            returnOnDrawdown = "-"
+    return returnOnDrawdown
 
 def updateReturnOnDrawdown(magic, returnOnDrawdown, account):
     account = str(account)
@@ -846,6 +1087,8 @@ def updateReturnOnDrawdown(magic, returnOnDrawdown, account):
 
                 # Write updated data back to JSON file
                 json.dump(set_data, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
             finally:
                 portalocker.unlock(file)
 
@@ -892,6 +1135,8 @@ def updateMaxDrawdown(magic, drawdown, account):
 
                 # Write updated data back to JSON file
                 json.dump(set_data, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
             finally:
                 portalocker.unlock(file)
 
@@ -941,6 +1186,8 @@ def updateDaysLive(account):
 
                     # Write updated data back to JSON file
                     json.dump(set_data, file, indent=4)
+                    file.flush()  # Ensure all data is written to disk
+                    os.fsync(file.fileno())
                 finally:
                     portalocker.unlock(file)
 
@@ -980,6 +1227,8 @@ def createAccount(account):
             try:
                 portalocker.lock(file, portalocker.LOCK_EX)
                 json.dump(account, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
             finally:
                 portalocker.unlock(file)
 
