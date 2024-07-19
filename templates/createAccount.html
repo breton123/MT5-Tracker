@@ -23,6 +23,10 @@
 					action="{{ url_for('create_account') }}"
 				>
 					<div class="form-group">
+						<label for="name">Account Name:</label>
+						<input type="text" id="name" name="name" required />
+					</div>
+					<div class="form-group">
 						<label for="login">Login:</label>
 						<input type="text" id="login" name="login" required />
 					</div>
@@ -44,6 +48,15 @@
 							type="text"
 							id="terminalFilePath"
 							name="terminalFilePath"
+							required
+						/>
+					</div>
+					<div class="form-group">
+						<label for="dataPath">Data Path:</label>
+						<input
+							type="text"
+							id="dataPath"
+							name="dataPath"
 							required
 						/>
 					</div>
