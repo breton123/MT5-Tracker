@@ -1,11 +1,12 @@
 import statistics
 import MetaTrader5 as mt5
 import datetime as datetime
-import time, os, json, tracker, portalocker, loader
+import time, os, json, tracker, portalocker, loader, chardet
 from datetime import datetime
 
 user_profile = os.environ['USERPROFILE']
 databaseFolder = os.path.join(user_profile, 'AppData', 'Local', 'Mt5TrackerDatabase')
+terminalsFolder = os.path.join(user_profile, 'AppData', 'Roaming', 'MetaQuotes', 'Terminal')
 lastTradeTime = 0
 accounts = []
 
@@ -68,7 +69,7 @@ def getConfig():
     if os.path.exists(configFile):
         with open(configFile, 'r') as f:
             return json.load(f)
-    return {"powName": "", "powAPIKey": ""}
+    return {"powName": "", "powAPIKey": "", "symbolSuffix": ""}
 
 def getAccounts():
     accounts = []
@@ -133,9 +134,10 @@ def getFrontendSets(account):
         print(errMsg)
         log_error(errMsg)
     except FileNotFoundError as e:
-        errMsg = f"Account: {account}  Task: (Get Frontend Sets)  FileNotFoundError: {e} - Account folder '{folder_path}' not found"
-        print(errMsg)
-        log_error(errMsg)
+        if folder_path != "C:\\Users\\Server\\AppData\\Local\\Mt5TrackerDatabase\\favicon.ico":
+            errMsg = f"Account: {account}  Task: (Get Frontend Sets)  FileNotFoundError: {e} - Account folder '{folder_path}' not found"
+            print(errMsg)
+            log_error(errMsg)
     except Exception as e:
         errMsg = f"Account: {account}  Task: (Get Frontend Sets)  Unexpected error: {e} occurred while loading frontend sets for account '{account}'"
         print(errMsg)
@@ -540,6 +542,71 @@ def getFilterData(account):
         data["maxWinRate"] = 0
         return data
 
+def detect_encoding(file_path):
+    with open(file_path, 'rb') as f:
+        raw_data = f.read()
+    result = chardet.detect(raw_data)
+    return result['encoding']
+
+def getTerminalFolder(account):
+    account = str(account)
+    try:
+        file_path = os.path.join(databaseFolder, "Accounts", f"{account}.json")
+        if os.path.exists(file_path):
+        # Lock the file for reading
+            with open(file_path, "r") as file:
+                try:
+                    portalocker.lock(file, portalocker.LOCK_SH)  # Shared lock for reading
+                        # Load account configuration
+                    config = json.load(file)
+                    return config.get("terminalFilePath", "")  
+                finally:
+                    portalocker.unlock(file)
+        else:
+            errMsg = f"Task: (Get Terminal Path)  File {file_path} not found while getting terminal path for account {account}"
+            print(errMsg)
+            log_error(errMsg)
+            return 0  # Return a default value
+            
+
+    except portalocker.LockException as e:
+        errMsg = f"Task: (Get Terminal Path)  LockException: {e} - Failed to acquire lock for file {file_path}"
+        print(errMsg)
+        log_error(errMsg)
+        return 0  # Return a default value
+    
+    except FileNotFoundError:
+        errMsg = f"Task: (Get Terminal Path)  File {file_path} not found while getting terminal path for account {account}"
+        print(errMsg)
+        log_error(errMsg)
+        return 0  # Return a default value
+    
+    except KeyError as e:
+        errMsg = f"Task: (Get Terminal Path)  KeyError: {e} - 'terminalPath' key not found in account configuration for account {account}"
+        print(errMsg)
+        log_error(errMsg)
+        return 0  # Return a default value
+    
+    except Exception as e:
+        errMsg = f"Task: (Get Terminal Path)  Unexpected error: {e}"
+        print(errMsg)
+        log_error(errMsg)
+        return 0  # Return a default value
+
+def getDataPath(account_id):
+    terminalFolder = getTerminalFolder(account_id).replace("\\terminal64.exe", "")
+    for folder in os.listdir(terminalsFolder):
+        try:
+            terminalFolderFilePath = os.path.join(terminalsFolder, folder, "origin.txt")
+            with open(terminalFolderFilePath, "r", encoding=detect_encoding(terminalFolderFilePath)) as file:
+                if terminalFolder == file.read():
+                    dataPath = os.path.join(terminalsFolder, folder)
+                    return dataPath
+        except:
+            pass
+    return ""
+
+
 def getProfileSets(account, profile):
     dataPath = tracker.getDataPath(account)
     profilePath = os.path.join(dataPath, "MQL5", "Profiles", "Charts", profile)
@@ -636,9 +703,10 @@ def getEquityGraphData(account):
 
 
 def updateProfitFactor(magic, account):
-    account = str(account)
+    accountData = account
+    account = accountData["login"]
     try:
-        newProfitFactor = tracker.getProfitFactor(magic)
+        newProfitFactor = tracker.getProfitFactor(magic, accountData)
         
         file_path = os.path.join(databaseFolder, account, f"{magic}.json")
         
@@ -704,9 +772,49 @@ def isTradeExists(trades, trade_id):
         log_error(errMsg)
         return False
 
+def updateTradeAmount(account, magic, trades):
+    try:
+        file_path = os.path.join(databaseFolder, account, f"{magic}.json")
+        # Lock the file for reading and writing
+        with open(file_path, "r+") as file:
+            try:
+                portalocker.lock(file, portalocker.LOCK_EX)
+
+                # Read existing data from JSON file
+                set_data = json.load(file)
+                set_data["stats"]["trades"] = trades
+
+                # Move the file pointer to the beginning of the file to overwrite it
+                file.seek(0)
+                file.truncate()
+
+                # Write updated data back to JSON file
+                json.dump(set_data, file, indent=4)
+                file.flush()  # Ensure all data is written to disk
+                os.fsync(file.fileno())
+            finally:
+                portalocker.unlock(file)
+
+    except portalocker.LockException as e:
+        errMsg = f"Account: {account}  Magic: {magic}  Task: (Update Trade Amount)  LockException: {e} - Failed to acquire lock for file {file_path}"
+        print(errMsg)
+        log_error(errMsg)
+    except FileNotFoundError as e:
+        errMsg = f"Account: {account}  Magic: {magic}  Task: (Update Trade Amount)  FileNotFoundError: {e} - File {file_path} not found while updating Trade Amount for magic {magic}"
+        print(errMsg)
+        log_error(errMsg)
+    except KeyError as e:
+        errMsg = f"Account: {account}  Magic: {magic}  Task: (Update Trade Amount)  KeyError: {e} - Required key not found in set data while updating Trade Amount for magic {magic}"
+        print(errMsg)
+        log_error(errMsg)
+    except Exception as e:
+        errMsg = f"Account: {account}  Magic: {magic}  Task: (Update Trade Amount)  Unexpected error: {e}"
+        print(errMsg)
+        log_error(errMsg)
 
 def updateDrawdown(magic, drawdown, time, account):
-    account = str(account)
+    accountData = account
+    account = accountData["login"]
     try:
         
         file_path = os.path.join(databaseFolder, account, f"{magic}.json")
@@ -814,12 +922,13 @@ def getDeposit(account):
 
 
 def updateEquity(magic, profit, time, account):
-    account = str(account)
+    accountData = account
+    account = accountData["login"]
     try:
         # Calculate profit percentage based on absolute profit and deposit
         deposit = getDeposit(account)
         # Calculate new equity including historical profit and current profit
-        historicalProfit = tracker.getHistoricalProfit(magic)
+        historicalProfit = tracker.getHistoricalProfit(magic, accountData)
         equity = float(deposit) + float(historicalProfit) + float(profit)
         
         # Lock the file for reading and writing
@@ -872,7 +981,8 @@ def updateEquity(magic, profit, time, account):
 
           
 def getSet(magic, account):
-    account = str(account)
+    accountData = account
+    account = accountData["login"]
     try:
         file_path = os.path.join(databaseFolder, account, f"{magic}.json")
         
@@ -893,7 +1003,7 @@ def getSet(magic, account):
     
     except FileNotFoundError:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Get Set)  File {magic}.json not found"
-        tracker.createSet(magic)
+        tracker.createSet(magic, accountData)
         print(errMsg)
         log_error(errMsg)
         return {}
@@ -1163,9 +1273,10 @@ def updateMaxDrawdown(magic, drawdown, account):
 
 
 def updateDaysLive(account):
-    account = str(account)
+    accountData = account
+    account = accountData["login"]
     try:
-        magics = tracker.getAllMagics()
+        magics = tracker.getAllMagics(accountData)
         for magic in magics:
             file_path = os.path.join(databaseFolder, account, f"{magic}.json")
 
@@ -1178,7 +1289,7 @@ def updateDaysLive(account):
                     set_data = json.load(file)
 
                     # Update daysLive in the loaded data
-                    set_data["stats"]["daysLive"] = tracker.getDaysLive(magic)
+                    set_data["stats"]["daysLive"] = tracker.getDaysLive(magic, accountData)
 
                     # Move the file pointer to the beginning of the file to overwrite it
                     file.seek(0)

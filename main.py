@@ -37,7 +37,7 @@ def account(account_id):
             slaveAccounts.append(account["login"])
     print(account_id)
     if len(sets) != 0:
-        return render_template('account.html', sets=sets, drawdownData = database.getDrawdownGraphData(account_id), equityData = database.getEquityGraphData(account_id), filterData = database.getFilterData(account_id), accounts=slaveAccounts, accountProfit=round(accountProfit,2), accountDrawdown=round(accountMaxDrawdown,2), testSets=testSets, accountAverageDrawdown=round(accountAverageDrawdown, 2))
+        return render_template('account.html', account_id = {"account_id": account_id}, sets=sets, drawdownData = database.getDrawdownGraphData(account_id), equityData = database.getEquityGraphData(account_id), filterData = database.getFilterData(account_id), accounts=slaveAccounts, accountProfit=round(accountProfit,2), accountDrawdown=round(accountMaxDrawdown,2), testSets=testSets, accountAverageDrawdown=round(accountAverageDrawdown, 2))
     else:
         return render_template('empty_account.html')
 
@@ -74,7 +74,7 @@ def load_config():
     if os.path.exists(configFile):
         with open(configFile, 'r') as f:
             return json.load(f)
-    return {"powName": "", "powAPIKey": ""}
+    return {"powName": "", "powAPIKey": "", "symbolSuffix": ""}
 
 @app.route('/delete-set', methods=['POST'])
 def delete_set():
@@ -90,9 +90,11 @@ def delete_set():
 @app.route('/copy-to-account', methods=['POST'])
 def copy_to_account():
     data = request.json
+    masterAccountID = data.get("masterAccount")
     account = data.get('account')
     magic_numbers = data.get('magicNumbers')
     print(magic_numbers)
+    loader.addCopier(masterAccountID, account, magic_numbers)
     # Process the magic numbers and copy them to the selected account
     # Your logic here
 
@@ -103,7 +105,8 @@ def config():
     if request.method == 'POST':
         powName = request.form['powName']
         powAPIKey = request.form['powAPIKey']
-        config = {"powName": powName, "powAPIKey": powAPIKey}
+        symbolSuffix = request.form['symbolSuffix']
+        config = {"powName": powName, "powAPIKey": powAPIKey,  "symbolSuffix": symbolSuffix}
         save_config(config)
         return redirect(url_for('config'))
 
@@ -156,7 +159,8 @@ def test():
     if request.method == 'POST':
         powName = request.form['powName']
         powAPIKey = request.form['powAPIKey']
-        config = {"powName": powName, "powAPIKey": powAPIKey}
+        symbolSuffix = request.form['symbolSuffix']
+        config = {"powName": powName, "powAPIKey": powAPIKey,  "symbolSuffix": symbolSuffix}
         save_config(config)
         return redirect(url_for('config'))
 
@@ -189,6 +193,7 @@ def create_account():
             'password': request.form['password'],
             'server': request.form['server'],
             'deposit': request.form['deposit'],
+            'dataPath': request.form['dataPath'],
             'terminalFilePath': request.form['terminalFilePath'],
             'type': request.form['type'],
             'status': "initializing"
@@ -200,6 +205,7 @@ def create_account():
 def accountManager():
     global trackingAccounts
     for account in database.getAccounts():
+        print(account)
         if account["login"] not in trackingAccounts:
             if account["type"] == "master":
                 trackerThread = threading.Thread(target=tracker.trackData, args=(account,)).start()
@@ -211,4 +217,4 @@ def accountManager():
 
 if __name__ == '__main__':
     accountManager()
-    app.run(debug=True)
+    app.run(debug=False, use_reloader=False)

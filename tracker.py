@@ -12,7 +12,6 @@ tickets = []
 # establish MetaTrader 5 connection to a specified trading account
 def openMt5(accountData):
      global accounts
-     print(int(accountData["login"]))
      if not mt5.initialize(accountData["terminalFilePath"], login=int(accountData["login"]), password=accountData["password"], server=accountData["server"]):
           print("initialize() failed, error code =",mt5.last_error())
           quit()
@@ -24,7 +23,8 @@ def getAccount():
      number = account_info[0]
      return number
 
-def getAllMagics():
+def getAllMagics(accountData):
+    openMt5(accountData)
     magics = []
     
     try:
@@ -54,7 +54,9 @@ def getAllMagics():
     return magics
 
 
-def getHistoricalProfit(magic):
+def getHistoricalProfit(magic, accountData):
+    openMt5(accountData)
+    account = accountData["login"]
     totalProfit = 0
     
     try:
@@ -91,45 +93,29 @@ def getHistoricalProfit(magic):
     return round(totalProfit, 2)
 
 
-def getTradeAmount(magic):
+def getTradeAmount(magic, account):
+    openMt5(account)
+    accountData = account
+    account = account["login"]
     amount = 0
-    
-    try:
-        magic = int(magic)
-    except ValueError as e:
-        errMsg = f"Task: (Get Trade Amount)  ValueError: {e} - Invalid magic number: {magic}"
-        print(errMsg)
-        database.log_error(errMsg)
-        return amount
-
     try:
         orders = mt5.history_deals_get(0, datetime.now())
+        for order in orders:
+            order = order._asdict()
+            if order["magic"] == magic:
+                if order["reason"] == 4:
+                    amount += 1  
+        return amount     
+    
     except Exception as e:
-        errMsg = f"Magic: {magic}  Task: (Get Trade Amount)  Error retrieving historical deals: {e}"
+        errMsg = f"Task: (Get Trade Amount)  Error retrieving historical deals: {e}"
         print(errMsg)
         database.log_error(errMsg)
         return amount
 
-    for order in orders:
-        try:
-            order = order._asdict()
-            orderMagic = order["magic"]
-            if orderMagic == magic:
-                if order["reason"] == 4:
-                    amount += 1
-        except KeyError as e:
-            errMsg = f"Magic: {magic}  Task: (Get Trade Amount)  KeyError: {e} - Error accessing order details"
-            print(errMsg)
-            database.log_error(errMsg)
-        except Exception as e:
-            errMsg = f"Magic: {magic}  Task: (Get Trade Amount)  Unexpected error: {e}"
-            print(errMsg)
-            database.log_error(errMsg)
 
-    return amount
-
-
-def getDaysLive(magic):
+def getDaysLive(magic, accountData):
+    openMt5(accountData)
     try:
         magic = int(magic)
     except ValueError as e:
@@ -169,6 +155,9 @@ def getDaysLive(magic):
 
 
 def onOpen(account):
+    openMt5(account)
+    accountData = account
+    account = account["login"]
     try:
         database.createAccountFolder(account)
     except Exception as e:
@@ -178,7 +167,7 @@ def onOpen(account):
         return
 
     try:
-        magics = getAllMagics()
+        magics = getAllMagics(accountData)
     except Exception as e:
         errMsg = f"Account: {account}  Task: (On Open)  Error retrieving magic numbers: {e}"
         print(errMsg)
@@ -198,14 +187,17 @@ def onOpen(account):
             foundSet = database.findSet(sets, magic)
             if not foundSet:
                 print(f"Creating set {magic}")
-                createSet(magic)
+                createSet(magic, accountData)
         except Exception as e:
             errMsg = f"Account: {account}  Magic: {magic}  Task: (On Open)  Error creating set: {e}"
             print(errMsg)
             database.log_error(errMsg)
 
 
-def getSetName(magic):
+def getSetName(magic, accountData):
+    openMt5(accountData)
+    account = accountData["login"]
+
     setName = f"Unnamed set {magic}"
     
     try:
@@ -243,17 +235,12 @@ def getSetName(magic):
     return setName
 
 
-def createSet(magic):
-    try:
-        account = getAccount()
-    except Exception as e:
-        errMsg = f"Magic: {magic}  Task: (Create Set)  Error retrieving account: {e}"
-        print(errMsg)
-        database.log_error(errMsg)
-        return
+def createSet(magic, accountData):
+    openMt5(accountData)
+    account = accountData["login"]
 
     try:
-        setName = getSetName(magic)
+        setName = getSetName(magic, accountData)
     except Exception as e:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving set name: {e}"
         print(errMsg)
@@ -261,7 +248,7 @@ def createSet(magic):
         return
 
     try:
-        historicalProfit = round(getHistoricalProfit(magic), 2)
+        historicalProfit = round(getHistoricalProfit(magic, accountData), 2)
     except Exception as e:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving historical profit: {e}"
         print(errMsg)
@@ -269,7 +256,7 @@ def createSet(magic):
         historicalProfit = 0
 
     try:
-        tradeAmount = getTradeAmount(magic)
+        tradeAmount = getTradeAmount(magic, accountData)
     except Exception as e:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving trade amount: {e}"
         print(errMsg)
@@ -277,7 +264,7 @@ def createSet(magic):
         tradeAmount = 0
 
     try:
-        profitFactor = getProfitFactor(magic)
+        profitFactor = getProfitFactor(magic, accountData)
     except Exception as e:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving profit factor: {e}"
         print(errMsg)
@@ -285,7 +272,7 @@ def createSet(magic):
         profitFactor = 0
 
     try:
-        daysLive = getDaysLive(magic)
+        daysLive = getDaysLive(magic, accountData)
     except Exception as e:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving days live: {e}"
         print(errMsg)
@@ -293,7 +280,7 @@ def createSet(magic):
         daysLive = 0
 
     try:
-        lotSizes = getLotSizes(magic)
+        lotSizes = getLotSizes(magic, accountData)
     except Exception as e:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving lot sizes: {e}"
         print(errMsg)
@@ -305,7 +292,7 @@ def createSet(magic):
         }
 
     try:
-        winRate = getWinRate(magic)
+        winRate = getWinRate(magic, accountData)
     except Exception as e:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving win rate: {e}"
         print(errMsg)
@@ -317,7 +304,7 @@ def createSet(magic):
         }
         
     try:
-        tradeTimes = getTradeTimes(magic)
+        tradeTimes = getTradeTimes(magic, accountData)
     except Exception as e:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error retrieving trade times: {e}"
         print(errMsg)
@@ -358,7 +345,7 @@ def createSet(magic):
     print(f"Inserting set {magic}")
 
     try:
-        historicalTrades = addHistoricalTrades(magic)
+        historicalTrades = addHistoricalTrades(magic, accountData)
         setData["trades"] = historicalTrades
     except Exception as e:
         errMsg = f"Account: {account}  Magic: {magic}  Task: (Create Set)  Error adding historical trades: {e}"
@@ -374,7 +361,8 @@ def createSet(magic):
         database.log_error(errMsg)
 
             
-def addHistoricalTrades(magic):
+def addHistoricalTrades(magic, accountData):
+    openMt5(accountData)
     trades = []
     
     try:
@@ -425,15 +413,11 @@ def addHistoricalTrades(magic):
     return trades
 
 
-def updateHistoricalTrades():
+def updateHistoricalTrades(account):
     global tickets
-    try:
-        account = getAccount()
-    except Exception as e:
-        errMsg = f"Task: (Update Historical Trades)  Error getting account: {e}"
-        print(errMsg)
-        database.log_error(errMsg)
-        return
+    openMt5(account)
+    accountData = account
+    account = account["login"]
     
     try:
         orders = mt5.history_deals_get(0, datetime.now())
@@ -450,7 +434,7 @@ def updateHistoricalTrades():
                 order_id = order[0]
                 if order_id not in tickets:
                     try:
-                        currentSet = database.getSet(orderMagic, account)
+                        currentSet = database.getSet(orderMagic, accountData)
                     except Exception as e:
                         errMsg = f"Account: {account}  Magic: {orderMagic}  Task: (Update Historical Trades)  Error getting current set: {e}"
                         print(errMsg)
@@ -481,8 +465,8 @@ def updateHistoricalTrades():
                                 "symbol": symbol
                             }
                             database.insertTrade(orderMagic, newTrade, account)
-                            database.updateProfitFactor(orderMagic, account)
-                            database.updateProfit(orderMagic, getHistoricalProfit(orderMagic), account)
+                            database.updateProfitFactor(orderMagic, accountData)
+                            database.updateProfit(orderMagic, getHistoricalProfit(orderMagic, accountData), account)
                             tickets.append(order_id)
                             print(f"New historical trade for {orderMagic}")
                         else:
@@ -501,7 +485,8 @@ def updateHistoricalTrades():
             database.log_error(errMsg)
 
 
-def getProfitFactor(magic):
+def getProfitFactor(magic, accountData):
+    openMt5(accountData)
     try:
         magic = int(magic)
     except ValueError as e:
@@ -551,8 +536,10 @@ def getProfitFactor(magic):
         return None
 
 
-def getLotSizes(magic):
+def getLotSizes(magic, account):
     lotSizes = []
+    openMt5(account)
+    account = account["login"]
     try:
         orders = mt5.history_deals_get(0, datetime.now())
         for order in orders:
@@ -598,10 +585,13 @@ def getLotSizes(magic):
                 "avgLotSize": 0
             }
 
-def getWinRate(magic):
+def getWinRate(magic, account):
+    openMt5(account)
+    accountData = account
+    account = account["login"]
     wins = 0
     losses = 0
-    trades = getTradeAmount(magic)
+    trades = getTradeAmount(magic, accountData)
     try:
         orders = mt5.history_deals_get(0, datetime.now())
         for order in orders:
@@ -636,7 +626,9 @@ def getWinRate(magic):
                 "losses": losses
             }
 
-def getTradeTimes(magic):
+def getTradeTimes(magic, account):
+    openMt5(account)
+    account = account["login"]
     try:
         deals = mt5.history_deals_get(0, datetime.now())
 
@@ -703,7 +695,10 @@ def getTradeTimes(magic):
         
 
 
-def getDrawdown():
+def getDrawdown(account):
+    openMt5(account)
+    accountData = account
+    account = account["login"]
     try:
         positions = mt5.positions_get()
     except Exception as e:
@@ -711,18 +706,12 @@ def getDrawdown():
         print(errMsg)
         database.log_error(errMsg)
         return
+    except Exception as e:
+        print(e)
 
     drawdown = {}
     profitList = {}
     currentTime = round(time.time())
-    
-    try:
-        account = getAccount()
-    except Exception as e:
-        errMsg = f"Task: (Get Drawdown)  Error getting account: {e}"
-        print(errMsg)
-        database.log_error(errMsg)
-        return
     
     for position in positions:
         try:
@@ -755,11 +744,11 @@ def getDrawdown():
                 currentDrawdown = 0
             
             print(f"Magic: {magic}  Drawdown: {currentDrawdown}  Profit: {currentProfit}")
-            database.updateDrawdown(magic, currentDrawdown, currentTime, account)
-            database.updateEquity(magic, currentProfit, currentTime, account)
+            database.updateDrawdown(magic, currentDrawdown, currentTime, accountData)
+            database.updateEquity(magic, currentProfit, currentTime, accountData)
             
             try:
-                setFile = database.getSet(magic, account)
+                setFile = database.getSet(magic, accountData)
             except Exception as e:
                 errMsg = f"Account: {account}  Magic: {magic}  Task: (Get Drawdown)  Error getting set file: {e}"
                 print(errMsg)
@@ -776,7 +765,7 @@ def getDrawdown():
             
             if maxD == "-":
                 print(f"New Max Drawdown for {magic}")
-                historicalProfit = getHistoricalProfit(magic)
+                historicalProfit = getHistoricalProfit(magic, accountData)
                 try:
                     returnOnDrawdown = database.getReturnOnDrawdown(magic, currentDrawdown, account, historicalProfit)
                     database.updateMaxDrawdown(magic, currentDrawdown, account)
@@ -787,7 +776,7 @@ def getDrawdown():
                     database.log_error(errMsg)
             elif currentDrawdown < float(maxD):
                 print(f"New Max Drawdown for {magic}")
-                historicalProfit = getHistoricalProfit(magic)
+                historicalProfit = getHistoricalProfit(magic, accountData)
                 try:
                     returnOnDrawdown = database.getReturnOnDrawdown(magic, currentDrawdown, account, historicalProfit)
                     database.updateMaxDrawdown(magic, currentDrawdown, account)
@@ -807,83 +796,94 @@ def getDataPath(account_id):
     return terminalData["data_path"]
 
 def trackData(accountData):
-    try:
+    while True:
         try:
-            openMt5(accountData)
-            database.resetErrorLog()
-            account = getAccount()
+            try:
+                openMt5(accountData)
+                database.resetErrorLog()
+                account = accountData["login"]
+            except Exception as e:
+                errMsg = f"Account: {account}  Task: (Track Data)  Error opening MT5 terminal: {e}"
+                print(errMsg)
+                database.log_error(errMsg)
+                return
+
+            try:
+                onOpen(accountData)
+            except Exception as e:
+                errMsg = f"Account: {account}  Task: (Track Data)  Error executing onOpen function: {e}"
+                print(errMsg)
+                database.log_error(errMsg)
+                return
+            time.sleep(5)
+            database.updateAccountStatus(account, "tracking")
+            while True:
+                try:
+                    updateTime = getDrawdown(accountData)
+                except Exception as e:
+                    errMsg = f"Account: {account}  Task: (Track Data)  Error in getDrawdown: {e}"
+                    print(errMsg)
+                    database.log_error(errMsg)
+
+                try:
+                    updateHistoricalTrades(accountData)
+                except Exception as e:
+                    errMsg = f"Account: {account}  Task: (Track Data)  Error in updateHistoricalTrades: {e}"
+                    print(errMsg)
+                    database.log_error(errMsg)
+
+                try:
+                    database.updateDaysLive(accountData)
+                except Exception as e:
+                    errMsg = f"Account: {account}  Task: (Track Data)  Error updating days live: {e}"
+                    print(errMsg)
+                    database.log_error(errMsg)
+
+                try:
+                    for magic in getAllMagics(accountData):
+                        trades = getTradeAmount(magic, accountData)
+                        database.updateTradeAmount(account, magic, trades)
+                except Exception as e:
+                    errMsg = f"Account: {account}  Task: (Track Data)  Error updating lot sizes: {e}"
+                    print(errMsg)
+                    database.log_error(errMsg)
+
+                    
+                try:
+                    for magic in getAllMagics(accountData):
+                        database.updateLotSizes(account, magic, getLotSizes(magic, accountData))
+                except Exception as e:
+                    errMsg = f"Account: {account}  Task: (Track Data)  Error updating lot sizes: {e}"
+                    print(errMsg)
+                    database.log_error(errMsg)
+                    
+                try:
+                    for magic in getAllMagics(accountData):
+                        database.updateWinRate(account, magic, getWinRate(magic, accountData))
+                except Exception as e:
+                    errMsg = f"Account: {account}  Task: (Track Data)  Error updating win rate: {e}"
+                    print(errMsg)
+                    database.log_error(errMsg)
+                    
+                try:
+                    for magic in getAllMagics(accountData):
+                        database.updateTradeTimes(account, magic, getTradeTimes(magic, accountData))
+                except Exception as e:
+                    errMsg = f"Account: {account}  Task: (Track Data)  Error updating trade times: {e}"
+                    print(errMsg)
+                    database.log_error(errMsg)
+
+                try:
+                    if not controller.isTerminalOpen(accountData["terminalFilePath"]):
+                        openMt5(accountData)
+                except Exception as e:
+                    errMsg = f"Account: {account}  Task: (Track Data)  Error updating days live: {e}"
+                    print(errMsg)
+                    database.log_error(errMsg)
+                updateTime = datetime.fromtimestamp(updateTime)
+                print(f"Latest Update: {updateTime}")
+                time.sleep(10)
         except Exception as e:
-            errMsg = f"Account: {account}  Task: (Track Data)  Error opening MT5 terminal: {e}"
+            errMsg = f"Account: {account}  Task: (Track Data)  Unexpected error: {e}"
             print(errMsg)
             database.log_error(errMsg)
-            return
-
-        try:
-            onOpen(account)
-        except Exception as e:
-            errMsg = f"Account: {account}  Task: (Track Data)  Error executing onOpen function: {e}"
-            print(errMsg)
-            database.log_error(errMsg)
-            return
-        time.sleep(5)
-        database.updateAccountStatus(account, "tracking")
-        while True:
-            try:
-                updateTime = getDrawdown()
-            except Exception as e:
-                errMsg = f"Account: {account}  Task: (Track Data)  Error in getDrawdown: {e}"
-                print(errMsg)
-                database.log_error(errMsg)
-
-            try:
-                updateHistoricalTrades()
-            except Exception as e:
-                errMsg = f"Account: {account}  Task: (Track Data)  Error in updateHistoricalTrades: {e}"
-                print(errMsg)
-                database.log_error(errMsg)
-
-            try:
-                database.updateDaysLive(account)
-            except Exception as e:
-                errMsg = f"Account: {account}  Task: (Track Data)  Error updating days live: {e}"
-                print(errMsg)
-                database.log_error(errMsg)
-                
-            try:
-                for magic in getAllMagics():
-                    database.updateLotSizes(account, magic, getLotSizes(magic))
-            except Exception as e:
-                errMsg = f"Account: {account}  Task: (Track Data)  Error updating lot sizes: {e}"
-                print(errMsg)
-                database.log_error(errMsg)
-                
-            try:
-                for magic in getAllMagics():
-                    database.updateWinRate(account, magic, getWinRate(magic))
-            except Exception as e:
-                errMsg = f"Account: {account}  Task: (Track Data)  Error updating win rate: {e}"
-                print(errMsg)
-                database.log_error(errMsg)
-                
-            try:
-                for magic in getAllMagics():
-                    database.updateTradeTimes(account, magic, getTradeTimes(magic))
-            except Exception as e:
-                errMsg = f"Account: {account}  Task: (Track Data)  Error updating trade times: {e}"
-                print(errMsg)
-                database.log_error(errMsg)
-
-            try:
-                if not controller.isTerminalOpen(accountData["terminalFilePath"]):
-                    openMt5(accountData)
-            except Exception as e:
-                errMsg = f"Account: {account}  Task: (Track Data)  Error updating days live: {e}"
-                print(errMsg)
-                database.log_error(errMsg)
-            updateTime = datetime.fromtimestamp(updateTime)
-            print(f"Latest Update: {updateTime}")
-            time.sleep(10)
-    except Exception as e:
-        errMsg = f"Account: {account}  Task: (Track Data)  Unexpected error: {e}"
-        print(errMsg)
-        database.log_error(errMsg)
