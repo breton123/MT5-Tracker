@@ -504,14 +504,16 @@ document.addEventListener("DOMContentLoaded", function () {
 		var selectedAccount = accountSelect.value;
 
 		if (selectedAccount && selectedRows.length > 0) {
+			console.log(account_id["account_id"])
 			fetch("/copy-to-account", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
+					masterAccount: account_id["account_id"],
 					account: selectedAccount,
-					magicNumbers: selectedRows,
+					magicNumbers: selectedRows
 				}),
 			})
 				.then((response) => response.json())
